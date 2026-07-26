@@ -954,7 +954,7 @@
                 "type": "prometheus",
                 "uid": "$datasource"
               },
-              "expr": "(sum by (namespace, pod) (increase(container_oom_events_total{container!=\"\",container!=\"POD\"}[$__range])) or on (namespace, pod) (0 * max by (namespace, pod) (kube_pod_info)))",
+              "expr": "((sum by (namespace, pod) (increase(container_oom_events_total{container!=\"\",container!=\"POD\"}[$__range])) and on (namespace, pod) max by (namespace, pod) (kube_pod_info)) or on (namespace, pod) (0 * max by (namespace, pod) (kube_pod_info)))",
               "format": "table",
               "instant": true
             }
@@ -977,6 +977,8 @@
                   "Time 3": true,
                   "Time 4": true,
                   "Time 5": true,
+                  "namespace": true,
+                  "namespace 1": true,
                   "namespace 2": true,
                   "namespace 3": true,
                   "namespace 4": true,
@@ -984,18 +986,16 @@
                 },
                 "indexByName": {
                   "pod": 0,
-                  "namespace": 1,
-                  "namespace 1": 1,
-                  "Value #A": 2,
-                  "Value #C": 3,
-                  "Value #D": 4,
-                  "Value #B": 5,
-                  "Value #E": 6,
-                  "Value 1": 2,
-                  "Value 2": 3,
-                  "Value 3": 4,
-                  "Value 4": 5,
-                  "Value 5": 6
+                  "Value #A": 1,
+                  "Value #C": 2,
+                  "Value #D": 3,
+                  "Value #B": 4,
+                  "Value #E": 5,
+                  "Value 1": 1,
+                  "Value 2": 2,
+                  "Value 3": 3,
+                  "Value 4": 4,
+                  "Value 5": 5
                 },
                 "renameByName": {
                   "Value #A": "mem request",
