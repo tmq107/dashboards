@@ -1,6 +1,6 @@
 {
   "title": "Deployment Right-Sizing",
-  "description": "Reference: https://oneuptime.com/blog/post/2026-01-06-kubernetes-right-size-resources/view",
+  "description": "Monitoring Resources to help choose right sizing",
   "uid": "deployment-right-sizing",
   "schemaVersion": 39,
   "version": 1,
@@ -2113,6 +2113,20 @@
           }
         ]
       }
+    }
+  ],
+  "links": [
+    {
+      "type": "link",
+      "title": "Kubernetes right-sizing guide",
+      "url": "https://oneuptime.com/blog/post/2026-01-06-kubernetes-right-size-resources/view",
+      "targetBlank": true,
+      "includeVars": false,
+      "keepTime": false,
+      "asDropdown": false,
+      "icon": "external link",
+      "tooltip": "Reference guide for Kubernetes requests, limits, and right-sizing rules",
+      "tags": []
     }
   ]
 }
