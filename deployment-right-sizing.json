@@ -1,5 +1,6 @@
 {
   "title": "Deployment Right-Sizing",
+  "description": "Reference: https://oneuptime.com/blog/post/2026-01-06-kubernetes-right-size-resources/view",
   "uid": "deployment-right-sizing",
   "schemaVersion": 39,
   "version": 1,
