@@ -778,7 +778,8 @@
                         "options": {
                           "match": "null",
                           "result": {
-                            "text": "N/A"
+                            "text": "N/A",
+                            "color": "red"
                           }
                         }
                       },
@@ -787,7 +788,8 @@
                         "options": {
                           "match": "nan",
                           "result": {
-                            "text": "N/A"
+                            "text": "N/A",
+                            "color": "red"
                           }
                         }
                       }
@@ -1138,7 +1140,8 @@
                         "options": {
                           "match": "null",
                           "result": {
-                            "text": "N/A"
+                            "text": "N/A",
+                            "color": "red"
                           }
                         }
                       },
@@ -1147,7 +1150,8 @@
                         "options": {
                           "match": "nan",
                           "result": {
-                            "text": "N/A"
+                            "text": "N/A",
+                            "color": "red"
                           }
                         }
                       }
