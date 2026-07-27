@@ -548,6 +548,16 @@
               "instant": true
             },
             {
+              "refId": "F",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "$datasource"
+              },
+              "expr": "max_over_time((sum by (namespace, pod) (max by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!=\"\",container!=\"POD\",image!=\"\"}[$__rate_interval]))))[$__range:]) and on (namespace, pod) max by (namespace, pod) (kube_pod_info)",
+              "format": "table",
+              "instant": true
+            },
+            {
               "refId": "B",
               "datasource": {
                 "type": "prometheus",
@@ -586,37 +596,43 @@
                   "Time 3": true,
                   "Time 4": true,
                   "Time 5": true,
+                  "Time 6": true,
                   "namespace": true,
                   "namespace 1": true,
                   "namespace 2": true,
                   "namespace 3": true,
                   "namespace 4": true,
-                  "namespace 5": true
+                  "namespace 5": true,
+                  "namespace 6": true
                 },
                 "indexByName": {
                   "pod": 0,
                   "Value #A": 1,
                   "Value #C": 2,
                   "Value #D": 3,
-                  "Value #B": 4,
-                  "Value #E": 5,
+                  "Value #F": 4,
+                  "Value #B": 5,
+                  "Value #E": 6,
                   "Value 1": 1,
                   "Value 2": 2,
                   "Value 3": 3,
                   "Value 4": 4,
-                  "Value 5": 5
+                  "Value 5": 5,
+                  "Value 6": 6
                 },
                 "renameByName": {
                   "Value #A": "cpu request",
                   "Value #C": "p95 cpu usage",
                   "Value #D": "cpu request / p95",
+                  "Value #F": "max cpu usage",
                   "Value #B": "cpu limit",
                   "Value #E": "cpu throttling %",
                   "Value 1": "cpu request",
                   "Value 2": "p95 cpu usage",
                   "Value 3": "cpu request / p95",
-                  "Value 4": "cpu limit",
-                  "Value 5": "cpu throttling %"
+                  "Value 4": "max cpu usage",
+                  "Value 5": "cpu limit",
+                  "Value 6": "cpu throttling %"
                 }
               }
             },
@@ -634,6 +650,10 @@
                   },
                   {
                     "targetField": "cpu request / p95",
+                    "destinationType": "number"
+                  },
+                  {
+                    "targetField": "max cpu usage",
                     "destinationType": "number"
                   },
                   {
@@ -737,6 +757,37 @@
                 "matcher": {
                   "id": "byName",
                   "options": "p95 cpu usage"
+                },
+                "properties": [
+                  {
+                    "id": "mappings",
+                    "value": [
+                      {
+                        "type": "special",
+                        "options": {
+                          "match": "null",
+                          "result": {
+                            "text": "N/A"
+                          }
+                        }
+                      },
+                      {
+                        "type": "special",
+                        "options": {
+                          "match": "nan",
+                          "result": {
+                            "text": "N/A"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "max cpu usage"
                 },
                 "properties": [
                   {
@@ -941,6 +992,16 @@
               "instant": true
             },
             {
+              "refId": "F",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "$datasource"
+              },
+              "expr": "max_over_time((sum by (namespace, pod) (max by (namespace, pod, container) (container_memory_working_set_bytes{container!=\"\",container!=\"POD\",image!=\"\"})))[$__range:]) and on (namespace, pod) max by (namespace, pod) (kube_pod_info)",
+              "format": "table",
+              "instant": true
+            },
+            {
               "refId": "B",
               "datasource": {
                 "type": "prometheus",
@@ -979,37 +1040,43 @@
                   "Time 3": true,
                   "Time 4": true,
                   "Time 5": true,
+                  "Time 6": true,
                   "namespace": true,
                   "namespace 1": true,
                   "namespace 2": true,
                   "namespace 3": true,
                   "namespace 4": true,
-                  "namespace 5": true
+                  "namespace 5": true,
+                  "namespace 6": true
                 },
                 "indexByName": {
                   "pod": 0,
                   "Value #A": 1,
                   "Value #C": 2,
                   "Value #D": 3,
-                  "Value #B": 4,
-                  "Value #E": 5,
+                  "Value #F": 4,
+                  "Value #B": 5,
+                  "Value #E": 6,
                   "Value 1": 1,
                   "Value 2": 2,
                   "Value 3": 3,
                   "Value 4": 4,
-                  "Value 5": 5
+                  "Value 5": 5,
+                  "Value 6": 6
                 },
                 "renameByName": {
                   "Value #A": "mem request",
                   "Value #C": "p99 mem usage",
                   "Value #D": "mem request / p99",
+                  "Value #F": "max mem usage",
                   "Value #B": "mem limit",
                   "Value #E": "oom kills",
                   "Value 1": "mem request",
                   "Value 2": "p99 mem usage",
                   "Value 3": "mem request / p99",
-                  "Value 4": "mem limit",
-                  "Value 5": "oom kills"
+                  "Value 4": "max mem usage",
+                  "Value 5": "mem limit",
+                  "Value 6": "oom kills"
                 }
               }
             },
@@ -1027,6 +1094,10 @@
                   },
                   {
                     "targetField": "mem request / p99",
+                    "destinationType": "number"
+                  },
+                  {
+                    "targetField": "max mem usage",
                     "destinationType": "number"
                   },
                   {
@@ -1262,6 +1333,37 @@
                 "matcher": {
                   "id": "byName",
                   "options": "p99 mem usage"
+                },
+                "properties": [
+                  {
+                    "id": "mappings",
+                    "value": [
+                      {
+                        "type": "special",
+                        "options": {
+                          "match": "null",
+                          "result": {
+                            "text": "N/A"
+                          }
+                        }
+                      },
+                      {
+                        "type": "special",
+                        "options": {
+                          "match": "nan",
+                          "result": {
+                            "text": "N/A"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "max mem usage"
                 },
                 "properties": [
                   {
