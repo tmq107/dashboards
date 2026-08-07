@@ -1,0 +1,525 @@
+# Deployment Right-Sizing Dashboard
+
+Grafana dashboard for comparing Kubernetes resource requests and limits with observed Deployment usage.
+
+Source dashboard: [`dashboard.json`](./dashboard.json)
+
+## Dashboard settings
+
+| Setting | Value |
+|---|---|
+| Dashboard title | Deployment Right-Sizing |
+| Datasource | Prometheus, selected through `$datasource` |
+| Refresh | 30 seconds |
+| Default time range | `now-7d` to `now` |
+| Timezone | Browser timezone |
+| Resource scope | All namespaces |
+
+## How to use
+
+1. Select a Prometheus datasource.
+2. Choose a time range with enough historical data.
+3. Review Overview for cluster-wide totals.
+4. Review Deployment CPU sizing and Deployment Memory sizing for current configuration versus observed usage.
+5. Use Startup CPU and Startup Memory to identify startup bursts.
+6. Use CPU Recommended Sizing and Memory Recommended Sizing as candidate values, not automatic production settings.
+7. Validate recommendations against traffic, autoscaling, rollout behavior, and application requirements before changing manifests.
+
+## Panel map
+
+| Row | Panel | Type | Queries |
+|---|---|---|---:|
+| Overview | Deployments in cluster | Stat | 1 |
+| Overview | All CPU requests | Stat | 1 |
+| Overview | All CPU limits | Stat | 1 |
+| Overview | All memory requests | Stat | 1 |
+| Overview | All memory limits | Stat | 1 |
+| Overview | Current CPU usage | Stat | 1 |
+| Overview | Current memory usage | Stat | 1 |
+| Deployment CPU | Deployment CPU sizing | Table | 7 |
+| Deployment Memory | Deployment Memory sizing | Table | 7 |
+| Deployment Startup CPU | Deployment Startup CPU | Table | 2 |
+| Deployment Startup Memory | Deployment Startup Memory | Table | 2 |
+| CPU Recommended Sizing | CPU Recommended Sizing | Table | 4 |
+| Memory Recommended Sizing | Memory Recommended Sizing | Table | 6 |
+
+The row panels are Grafana layout groups. They do not contain PromQL queries.
+
+## Shared query logic
+
+Most deployment panels use this pod-name pattern:
+
+```text
+.*-[a-z0-9]{9,10}-[a-z0-9]{5}$
+```
+
+This matches common Deployment-managed Pod names generated through a ReplicaSet. Queries then:
+
+1. Aggregate container metrics to Pod level.
+2. Extract the Deployment name from the Pod name with `label_replace`.
+3. Build `namespace/deployment` with `label_join` into the `workload` label.
+4. Aggregate or compare values by `workload` and `deployment`.
+5. Join table query results by `workload`.
+
+Common filters:
+
+- `container!=""`: exclude metrics without a container label.
+- `container!="POD"`: exclude the Kubernetes pause container.
+- `image!=""`: exclude empty-image series.
+- `resource="cpu"` or `resource="memory"`: select resource type.
+
+`$__range` represents the selected Grafana time range. `$__rate_interval` is Grafana's rate interval calculated for the panel resolution.
+
+## Panel details
+
+## Overview
+
+### Deployments in cluster
+
+Description: current number of Deployments known by kube-state-metrics.
+
+**Query A**
+
+```promql
+count(max by (namespace, deployment) (kube_deployment_spec_replicas)) or vector(0)
+```
+
+What it does:
+
+- Groups Deployment replica specifications by namespace and Deployment.
+- Counts resulting Deployment series.
+- Returns zero when no series exist.
+
+Unit: short count.
+
+### All CPU requests
+
+Description: total CPU requests across all Pods.
+
+**Query A**
+
+```promql
+sum(max by (namespace, pod, container) (kube_pod_container_resource_requests{resource="cpu"})) or vector(0)
+```
+
+What it does:
+
+- Selects configured CPU requests.
+- Keeps one value per namespace, Pod, and container.
+- Sums all container requests across the cluster.
+
+Unit: CPU cores.
+
+### All CPU limits
+
+Description: total CPU limits across all Pods.
+
+**Query A**
+
+```promql
+sum(max by (namespace, pod, container) (kube_pod_container_resource_limits{resource="cpu"})) or vector(0)
+```
+
+What it does:
+
+- Selects configured CPU limits.
+- Keeps one value per namespace, Pod, and container.
+- Sums all container limits across the cluster.
+
+Unit: CPU cores.
+
+### All memory requests
+
+Description: total memory requests across all Pods.
+
+**Query A**
+
+```promql
+sum(max by (namespace, pod, container) (kube_pod_container_resource_requests{resource="memory"})) or vector(0)
+```
+
+What it does:
+
+- Selects configured memory requests.
+- Keeps one value per namespace, Pod, and container.
+- Sums all container requests across the cluster.
+
+Unit: bytes.
+
+### All memory limits
+
+Description: total memory limits across all Pods.
+
+**Query A**
+
+```promql
+sum(max by (namespace, pod, container) (kube_pod_container_resource_limits{resource="memory"})) or vector(0)
+```
+
+What it does:
+
+- Selects configured memory limits.
+- Keeps one value per namespace, Pod, and container.
+- Sums all container limits across the cluster.
+
+Unit: bytes.
+
+### Current CPU usage
+
+Description: current CPU usage across all Pods.
+
+**Query A**
+
+```promql
+sum(max by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!="",container!="POD",image!=""}[$__rate_interval]))) or vector(0)
+```
+
+What it does:
+
+- Calculates per-container CPU usage rate.
+- Aggregates container series to Pod/container identity.
+- Sums current usage across all Pods.
+
+Unit: CPU cores.
+
+### Current memory usage
+
+Description: current memory working set across all Pods.
+
+**Query A**
+
+```promql
+sum(max by (namespace, pod, container) (container_memory_working_set_bytes{container!="",container!="POD",image!=""})) or vector(0)
+```
+
+What it does:
+
+- Selects container working-set memory.
+- Excludes pause and empty-image series.
+- Sums current working-set memory across all Pods.
+
+Unit: bytes.
+
+## Deployment CPU sizing
+
+Panel description: Deployment name is derived from Deployment-managed Pod names. Historical Pod samples remain usable while Prometheus retains them. Startup-specific metrics are excluded.
+
+All values are joined by `workload`, displayed as `deployment`, and sorted by deployment name.
+
+| Query | Output column | Meaning |
+|---|---|---|
+| A | `cpu request / pod` | Average configured CPU request per Pod over the selected range |
+| B | `p95 cpu usage / pod` | Maximum per-Deployment Pod-level P95 CPU usage |
+| C | `cpu request / p95` | Request divided by P95 usage, expressed as percent |
+| D | `max cpu usage / pod` | Maximum observed CPU usage per Pod over the selected range |
+| E | `cpu request / max` | Request divided by maximum usage, expressed as percent |
+| F | `cpu limit / pod` | Average configured CPU limit per Pod |
+| G | `cpu throttling %` | Maximum observed CPU throttling ratio |
+
+### Query A: CPU request per Pod
+
+```promql
+avg by (workload, deployment) (label_join(label_replace(sum by (namespace, pod) (kube_pod_container_resource_requests{resource="cpu",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))
+```
+
+Aggregates CPU requests across containers for each Pod, derives Deployment identity, then averages Pod requests by Deployment.
+
+### Query B: P95 CPU usage per Pod
+
+```promql
+max by (workload, deployment) (label_join(label_replace(quantile_over_time(0.95, (sum by (namespace, pod) (max by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}[$__rate_interval]))))[$__range:]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))
+```
+
+Calculates Pod CPU usage, computes the 95th percentile over the selected range, then keeps the highest Pod-level P95 for each Deployment.
+
+### Query C: CPU request divided by P95 usage
+
+```promql
+100 * (avg by (workload, deployment) (label_join(label_replace(sum by (namespace, pod) (kube_pod_container_resource_requests{resource="cpu",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))) / clamp_min((max by (workload, deployment) (label_join(label_replace(quantile_over_time(0.95, (sum by (namespace, pod) (max by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}[$__rate_interval]))))[$__range:]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))), 0.001)
+```
+
+Divides average CPU request by the Deployment's highest P95 CPU usage. `clamp_min` prevents division by values below `0.001` cores. Thresholds: green below 70%, yellow from 70%, red from 85%.
+
+### Query D: Maximum CPU usage per Pod
+
+```promql
+max by (workload, deployment) (label_join(label_replace(max_over_time((sum by (namespace, pod) (max by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}[$__rate_interval]))))[$__range:]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))
+```
+
+Finds maximum Pod CPU usage over the selected range, then keeps the highest value per Deployment.
+
+### Query E: CPU request divided by maximum usage
+
+```promql
+100 * (avg by (workload, deployment) (label_join(label_replace(sum by (namespace, pod) (kube_pod_container_resource_requests{resource="cpu",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))) / clamp_min((max by (workload, deployment) (label_join(label_replace(max_over_time((sum by (namespace, pod) (max by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}[$__rate_interval]))))[$__range:]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))), 0.001)
+```
+
+Divides average CPU request by maximum observed CPU usage. Thresholds: green below 70%, yellow from 70%, red from 85%.
+
+### Query F: CPU limit per Pod
+
+```promql
+avg by (workload, deployment) (label_join(label_replace(sum by (namespace, pod) (kube_pod_container_resource_limits{resource="cpu",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))
+```
+
+Aggregates configured CPU limits across containers and averages them across Pods per Deployment.
+
+### Query G: CPU throttling percentage
+
+```promql
+max by (workload, deployment) (label_join(label_replace(max_over_time((100 * (sum by (namespace, pod) (rate(container_cpu_cfs_throttled_periods_total{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}[$__rate_interval]))) / clamp_min((sum by (namespace, pod) (rate(container_cpu_cfs_periods_total{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}[$__rate_interval]))), 0.001))[$__range:]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))
+```
+
+Calculates throttled CFS periods divided by total CFS periods, converts to percent, finds the maximum over the selected range, and keeps the highest value per Deployment. Thresholds: yellow from 5%, red from 10%.
+
+## Deployment Memory sizing
+
+Panel description: Deployment name is derived from Deployment-managed Pod names. Historical Pod samples remain usable while Prometheus retains them. Startup-specific metrics are excluded.
+
+| Query | Output column | Meaning |
+|---|---|---|
+| A | `mem request / pod` | Average configured memory request per Pod |
+| B | `p99 mem usage / pod` | Maximum per-Deployment Pod-level P99 working-set memory |
+| C | `mem request / p99` | Request divided by P99 usage, expressed as percent |
+| D | `max mem usage / pod` | Maximum observed working-set memory per Pod |
+| E | `mem request / max` | Request divided by maximum usage, expressed as percent |
+| F | `mem limit / pod` | Average configured memory limit per Pod |
+| G | `oom kills` | Total OOM events over the selected range |
+
+### Query A: Memory request per Pod
+
+```promql
+avg by (workload, deployment) (label_join(label_replace(sum by (namespace, pod) (kube_pod_container_resource_requests{resource="memory",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))
+```
+
+Aggregates memory requests across containers for each Pod, then averages Pod requests by Deployment.
+
+### Query B: P99 memory usage per Pod
+
+```promql
+max by (workload, deployment) (label_join(label_replace(quantile_over_time(0.99, (sum by (namespace, pod) (max by (namespace, pod, container) (container_memory_working_set_bytes{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"})))[$__range:]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))
+```
+
+Calculates Pod working-set memory, computes the 99th percentile over the selected range, then keeps the highest Pod-level P99 for each Deployment.
+
+### Query C: Memory request divided by P99 usage
+
+```promql
+100 * (avg by (workload, deployment) (label_join(label_replace(sum by (namespace, pod) (kube_pod_container_resource_requests{resource="memory",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))) / clamp_min((max by (workload, deployment) (label_join(label_replace(quantile_over_time(0.99, (sum by (namespace, pod) (max by (namespace, pod, container) (container_memory_working_set_bytes{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"})))[$__range:]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))), 1)
+```
+
+Divides average memory request by the Deployment's highest P99 memory usage. `clamp_min` prevents division by values below 1 byte. Thresholds: yellow from 70%, red from 85%.
+
+### Query D: Maximum memory usage per Pod
+
+```promql
+max by (workload, deployment) (label_join(label_replace(max_over_time((sum by (namespace, pod) (max by (namespace, pod, container) (container_memory_working_set_bytes{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"})))[$__range:]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))
+```
+
+Finds maximum working-set memory over the selected range, then keeps the highest value per Deployment.
+
+### Query E: Memory request divided by maximum usage
+
+```promql
+100 * (avg by (workload, deployment) (label_join(label_replace(sum by (namespace, pod) (kube_pod_container_resource_requests{resource="memory",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))) / clamp_min((max by (workload, deployment) (label_join(label_replace(max_over_time((sum by (namespace, pod) (max by (namespace, pod, container) (container_memory_working_set_bytes{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"})))[$__range:]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))), 1)
+```
+
+Divides average memory request by maximum observed memory usage. Thresholds: yellow from 70%, red from 85%.
+
+### Query F: Memory limit per Pod
+
+```promql
+avg by (workload, deployment) (label_join(label_replace(sum by (namespace, pod) (kube_pod_container_resource_limits{resource="memory",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))
+```
+
+Aggregates configured memory limits across containers and averages them across Pods per Deployment.
+
+### Query G: OOM kills
+
+```promql
+sum by (workload, deployment) (label_join(label_replace(sum by (namespace, pod) (increase(container_oom_events_total{container!="",container!="POD",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}[$__range])), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))
+```
+
+Counts OOM events per Pod over the selected range and sums them by Deployment. Any value at or above 1 is colored red.
+
+## Deployment Startup CPU
+
+Panel description: startup window is defined in the dashboard description as Pod start until first Ready time.
+
+Actual query behavior: both queries include samples while `time() - kube_pod_start_time` is less than 300 seconds. They therefore measure the first five minutes after Pod start, not the interval ending at first Ready time.
+
+| Query | Output column | Meaning |
+|---|---|---|
+| D | `startup max cpu / pod p95` | P95 of startup maximum CPU per Deployment |
+| E | `startup max cpu / pod max` | Maximum startup CPU per Deployment |
+
+### Query D: Startup CPU P95
+
+```promql
+quantile by (workload, deployment) (0.95, label_join(label_replace(max_over_time(((sum by (namespace, pod) (max by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}[1m])))) * on(namespace, pod) group_left() ((time() - kube_pod_start_time{pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}) < bool 300))[$__range:1m]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))
+```
+
+Calculates one-minute CPU rate, keeps samples from the first 300 seconds after Pod start, finds each Pod's startup maximum, and calculates the Deployment-level P95.
+
+### Query E: Startup CPU maximum
+
+```promql
+max by (workload, deployment) (label_join(label_replace(max_over_time(((sum by (namespace, pod) (max by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}[1m])))) * on(namespace, pod) group_left() ((time() - kube_pod_start_time{pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}) < bool 300))[$__range:1m]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))
+```
+
+Uses the same first-five-minutes startup filter and returns the maximum startup CPU value per Deployment.
+
+## Deployment Startup Memory
+
+Panel description: startup window is defined in the dashboard description as Pod start until first Ready time.
+
+Actual query behavior: both queries include samples while `time() - kube_pod_start_time` is less than 300 seconds. They measure the first five minutes after Pod start, not the interval ending at first Ready time.
+
+| Query | Output column | Meaning |
+|---|---|---|
+| A | `startup max mem / pod p95` | P95 of startup maximum memory per Deployment |
+| B | `startup max mem / pod max` | Maximum startup memory per Deployment |
+
+### Query A: Startup memory P95
+
+```promql
+quantile by (workload, deployment) (0.95, label_join(label_replace(max_over_time(((sum by (namespace, pod) (max by (namespace, pod, container) (container_memory_working_set_bytes{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}))) * on(namespace, pod) group_left() ((time() - kube_pod_start_time{pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}) < bool 300))[$__range:1m]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))
+```
+
+Calculates startup working-set memory, finds each Pod's maximum during the first 300 seconds, and calculates the Deployment-level P95.
+
+### Query B: Startup memory maximum
+
+```promql
+max by (workload, deployment) (label_join(label_replace(max_over_time(((sum by (namespace, pod) (max by (namespace, pod, container) (container_memory_working_set_bytes{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}))) * on(namespace, pod) group_left() ((time() - kube_pod_start_time{pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}) < bool 300))[$__range:1m]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))
+```
+
+Uses the same first-five-minutes startup filter and returns the maximum startup memory value per Deployment.
+
+## CPU Recommended Sizing
+
+Panel description: steady-state recommendation only. Request is based on per-Pod P95 CPU over the selected range.
+
+| Query | Output column | Formula | Use |
+|---|---|---|---|
+| A | `recommended cpu request` | P95 CPU usage | Candidate CPU request |
+| B | `cpu limit 2x` | P95 CPU usage x 2 | Candidate CPU limit |
+| C | `cpu limit 3x` | P95 CPU usage x 3 | Higher burst allowance |
+| D | `cpu limit 5x` | P95 CPU usage x 5 | Highest shown burst allowance |
+
+The base expression used by all four queries is the Deployment-level maximum of per-Pod P95 CPU usage.
+
+### Query A: Recommended CPU request
+
+```promql
+max by (workload, deployment) (label_join(label_replace(quantile_over_time(0.95, (sum by (namespace, pod) (max by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}[$__rate_interval]))))[$__range:]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))
+```
+
+### Query B: CPU limit at 2x
+
+```promql
+2 * max by (workload, deployment) (label_join(label_replace(quantile_over_time(0.95, (sum by (namespace, pod) (max by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}[$__rate_interval]))))[$__range:]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))
+```
+
+### Query C: CPU limit at 3x
+
+```promql
+3 * max by (workload, deployment) (label_join(label_replace(quantile_over_time(0.95, (sum by (namespace, pod) (max by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}[$__rate_interval]))))[$__range:]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))
+```
+
+### Query D: CPU limit at 5x
+
+```promql
+5 * max by (workload, deployment) (label_join(label_replace(quantile_over_time(0.95, (sum by (namespace, pod) (max by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}[$__rate_interval]))))[$__range:]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))
+```
+
+## Memory Recommended Sizing
+
+Panel description: steady-state recommendation only. Request is based on per-Pod P99 memory over the selected range. Limit suggestions are based on per-Pod maximum memory over the selected range.
+
+| Query | Output column | Formula | Use |
+|---|---|---|---|
+| A | `p99 mem usage / pod` | P99 memory usage | Baseline request signal |
+| B | `max mem usage / pod` | Maximum memory usage | Baseline limit signal |
+| C | `recommended mem request +10%` | P99 usage x 1.10 | Candidate request |
+| D | `recommended mem request +20%` | P99 usage x 1.20 | More conservative request |
+| E | `recommended mem limit +10%` | Maximum usage x 1.10 | Candidate limit |
+| F | `recommended mem limit +20%` | Maximum usage x 1.20 | More conservative limit |
+
+### Query A: P99 memory usage
+
+```promql
+max by (workload, deployment) (label_join(label_replace(quantile_over_time(0.99, (sum by (namespace, pod) (max by (namespace, pod, container) (container_memory_working_set_bytes{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"})))[$__range:]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))
+```
+
+### Query B: Maximum memory usage
+
+```promql
+max by (workload, deployment) (label_join(label_replace(max_over_time((sum by (namespace, pod) (max by (namespace, pod, container) (container_memory_working_set_bytes{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"})))[$__range:]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))
+```
+
+### Query C: Memory request plus 10%
+
+```promql
+1.10 * max by (workload, deployment) (label_join(label_replace(quantile_over_time(0.99, (sum by (namespace, pod) (max by (namespace, pod, container) (container_memory_working_set_bytes{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"})))[$__range:]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))
+```
+
+### Query D: Memory request plus 20%
+
+```promql
+1.20 * max by (workload, deployment) (label_join(label_replace(quantile_over_time(0.99, (sum by (namespace, pod) (max by (namespace, pod, container) (container_memory_working_set_bytes{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"})))[$__range:]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))
+```
+
+### Query E: Memory limit plus 10%
+
+```promql
+1.10 * max by (workload, deployment) (label_join(label_replace(max_over_time((sum by (namespace, pod) (max by (namespace, pod, container) (container_memory_working_set_bytes{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"})))[$__range:]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))
+```
+
+### Query F: Memory limit plus 20%
+
+```promql
+1.20 * max by (workload, deployment) (label_join(label_replace(max_over_time((sum by (namespace, pod) (max by (namespace, pod, container) (container_memory_working_set_bytes{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"})))[$__range:]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))
+```
+
+## Transformations and display behavior
+
+Each table panel uses these transformations:
+
+1. `joinByField`: outer join query results by `workload`.
+2. `organize`: removes duplicate time and label fields, orders columns, and renames query values.
+3. `convertFieldType`: converts displayed query values to numbers.
+
+Null and NaN values display as `N/A` with red coloring.
+
+Percentage columns use threshold coloring:
+
+- Green: below 70% for request-to-usage ratios.
+- Yellow: 70% and above.
+- Red: 85% and above.
+
+CPU throttling uses:
+
+- Green: below 5%.
+- Yellow: 5% and above.
+- Red: 10% and above.
+
+OOM kills use:
+
+- Green: zero.
+- Red: one or more.
+
+## Caveats and validation checklist
+
+- Pod-to-Deployment mapping depends on the ReplicaSet Pod-name regex.
+- StatefulSets, DaemonSets, Jobs, and custom naming schemes are not represented reliably.
+- Startup descriptions mention first Ready time, but startup queries use a fixed 300-second window after Pod start.
+- Requests and limits are averaged per Pod in sizing tables. Verify this matches the intended rollout and replica behavior.
+- Deployment tables use the highest qualifying Pod value per Deployment for several usage metrics. One unusually large Pod can influence recommendations.
+- P95 and P99 values depend on Prometheus sample density, retention, and selected time range.
+- Memory working set is not always identical to application heap or total resident memory.
+- CPU throttling can indicate restrictive limits, but interpretation depends on workload behavior and CPU quota configuration.
+- OOM metrics must be available from the configured container metrics exporter.
+- Validate candidate values against HPA/VPA behavior, startup probes, traffic peaks, rollout surge, node capacity, and SLOs.
+
+
