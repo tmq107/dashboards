@@ -277,7 +277,7 @@ Calculates each Pod's CPU P95 over the selected range, then calculates P95 acros
 ### Query C: CPU request divided by P95 usage
 
 ```promql
-100 * (quantile by (workload, deployment) (0.95, label_join(label_replace(quantile_over_time(0.95, (sum by (namespace, pod) (max by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}[$__rate_interval]))))[$__range:]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment")) / clamp_min((avg by (workload, deployment) (label_join(label_replace(sum by (namespace, pod) (kube_pod_container_resource_requests{resource="cpu",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))), 0.001)
+100 * (quantile by (workload, deployment) (0.95, label_join(label_replace(quantile_over_time(0.95, (sum by (namespace, pod) (max by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}[$__rate_interval]))))[$__range:]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment")) / clamp_min((avg by (workload, deployment) (label_join(label_replace(sum by (namespace, pod) (kube_pod_container_resource_requests{resource="cpu",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))), 0.001))
 ```
 
 Divides P95 across Pod-level P95 CPU values by average CPU request. `clamp_min` prevents division by values below `0.001` cores. Thresholds: green below 80%, yellow from 80%, red from 100%.
@@ -347,7 +347,7 @@ Calculates Pod working-set memory, computes the 99th percentile over the selecte
 ### Query C: Memory request divided by P99 usage
 
 ```promql
-100 * (max by (workload, deployment) (label_join(label_replace(quantile_over_time(0.99, (sum by (namespace, pod) (max by (namespace, pod, container) (container_memory_working_set_bytes{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"})))[$__range:]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment")) / clamp_min((avg by (workload, deployment) (label_join(label_replace(sum by (namespace, pod) (kube_pod_container_resource_requests{resource="memory",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))), 1)
+100 * (max by (workload, deployment) (label_join(label_replace(quantile_over_time(0.99, (sum by (namespace, pod) (max by (namespace, pod, container) (container_memory_working_set_bytes{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"})))[$__range:]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment")) / clamp_min((avg by (workload, deployment) (label_join(label_replace(sum by (namespace, pod) (kube_pod_container_resource_requests{resource="memory",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))), 1))
 ```
 
 Divides the Deployment's highest P99 memory usage by average memory request. `clamp_min` prevents division by values below 1 byte. Thresholds: green below 80%, yellow from 80%, red from 100%.
