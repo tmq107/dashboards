@@ -1994,6 +1994,18 @@
       "icon": "external link",
       "tooltip": "Reference guide for Kubernetes requests, limits, and right-sizing rules",
       "tags": []
+    },
+    {
+      "type": "link",
+      "title": "README",
+      "url": "https://github.com/tmq107/dashboards/blob/master/deployment-right-sizing/README.md",
+      "targetBlank": true,
+      "includeVars": false,
+      "keepTime": false,
+      "asDropdown": false,
+      "icon": "external link",
+      "tooltip": "Dashboard query and sizing documentation",
+      "tags": []
     }
   ]
 }
