@@ -41,7 +41,7 @@ Source dashboard: [`dashboard.json`](./dashboard.json)
 | Deployment Startup CPU | Deployment Startup CPU | Table | 2 |
 | Deployment Startup Memory | Deployment Startup Memory | Table | 2 |
 | CPU Recommended Sizing | CPU Recommended Sizing | Table | 3 |
-| Memory Recommended Sizing | Memory Recommended Sizing | Table | 6 |
+| Memory Recommended Sizing | Memory Recommended Sizing | Table | 4 visible fields, 6 queries |
 
 The row panels are Grafana layout groups. They do not contain PromQL queries.
 
@@ -244,19 +244,19 @@ Unit: bytes.
 
 ## Deployment CPU sizing
 
-Panel description: Deployment name is derived from Deployment-managed Pod names. Historical Pod samples remain usable while Prometheus retains them. Startup-specific metrics are excluded.
+Panel description: Deployment name is derived from Deployment-managed Pod names. Historical Pod samples remain usable while Prometheus retains them. Startup-specific metrics are excluded. The request-to-maximum ratio field is hidden; maximum CPU remains visible as a safety signal.
 
 All values are joined by `workload`, displayed as `deployment`, and sorted by deployment name.
 
-| Query | Output column | Meaning |
-|---|---|---|
-| A | `cpu request / pod` | Average configured CPU request per Pod over the selected range |
-| B | `p95 cpu usage / pod (p95 across pods)` | P95 across Pod-level P95 CPU values |
-| C | `cpu request / p95 cpu usage` | Request divided by P95 usage, expressed as percent |
-| D | `max cpu usage / pod` | Maximum observed CPU usage per Pod over the selected range |
-| E | `cpu request / max` | Request divided by maximum usage, expressed as percent |
-| F | `cpu limit / pod` | Average configured CPU limit per Pod |
-| G | `cpu throttling %` | Maximum observed CPU throttling ratio |
+| Query | Output column | Meaning | Visibility/use |
+|---|---|---|---|
+| A | `cpu request / pod` | Average configured CPU request per Pod over the selected range | Visible |
+| B | `p95 cpu usage / pod (p95 across pods)` | P95 across Pod-level P95 CPU values | Visible sizing baseline |
+| C | `p95 cpu usage / avg request` | P95 usage divided by average request, expressed as percent | Visible |
+| D | `max cpu usage / pod` | Maximum observed CPU usage per Pod over the selected range | Visible safety signal |
+| E | `cpu request / max` | Request divided by maximum usage, expressed as percent | Hidden diagnostic |
+| F | `cpu limit / pod` | Average configured CPU limit per Pod | Visible |
+| G | `cpu throttling %` | Maximum observed CPU throttling ratio | Visible |
 
 ### Query A: CPU request per Pod
 
@@ -277,10 +277,10 @@ Calculates each Pod's CPU P95 over the selected range, then calculates P95 acros
 ### Query C: CPU request divided by P95 usage
 
 ```promql
-100 * (avg by (workload, deployment) (label_join(label_replace(sum by (namespace, pod) (kube_pod_container_resource_requests{resource="cpu",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))) / clamp_min((quantile by (workload, deployment) (0.95, label_join(label_replace(quantile_over_time(0.95, (sum by (namespace, pod) (max by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}[$__rate_interval]))))[$__range:]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))), 0.001)
+100 * (quantile by (workload, deployment) (0.95, label_join(label_replace(quantile_over_time(0.95, (sum by (namespace, pod) (max by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}[$__rate_interval]))))[$__range:]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment")) / clamp_min((avg by (workload, deployment) (label_join(label_replace(sum by (namespace, pod) (kube_pod_container_resource_requests{resource="cpu",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))), 0.001)
 ```
 
-Divides average CPU request by P95 across Pod-level P95 CPU values. `clamp_min` prevents division by values below `0.001` cores. Thresholds: green below 70%, yellow from 70%, red from 85%.
+Divides P95 across Pod-level P95 CPU values by average CPU request. `clamp_min` prevents division by values below `0.001` cores. Thresholds: green below 80%, yellow from 80%, red from 100%.
 
 ### Query D: Maximum CPU usage per Pod
 
@@ -290,13 +290,13 @@ max by (workload, deployment) (label_join(label_replace(max_over_time((sum by (n
 
 Finds maximum Pod CPU usage over the selected range, then keeps the highest value per Deployment.
 
-### Query E: CPU request divided by maximum usage
+### Query E: CPU request divided by maximum usage (hidden diagnostic)
 
 ```promql
 100 * (avg by (workload, deployment) (label_join(label_replace(sum by (namespace, pod) (kube_pod_container_resource_requests{resource="cpu",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))) / clamp_min((max by (workload, deployment) (label_join(label_replace(max_over_time((sum by (namespace, pod) (max by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}[$__rate_interval]))))[$__range:]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))), 0.001)
 ```
 
-Divides average CPU request by maximum observed CPU usage. Thresholds: green below 70%, yellow from 70%, red from 85%.
+Divides average CPU request by maximum observed CPU usage. Field hidden from dashboard output; use maximum CPU usage directly as safety signal.
 
 ### Query F: CPU limit per Pod
 
@@ -316,17 +316,17 @@ Calculates throttled CFS periods divided by total CFS periods, converts to perce
 
 ## Deployment Memory sizing
 
-Panel description: Deployment name is derived from Deployment-managed Pod names. Historical Pod samples remain usable while Prometheus retains them. Startup-specific metrics are excluded.
+Panel description: Deployment name is derived from Deployment-managed Pod names. Historical Pod samples remain usable while Prometheus retains them. Startup-specific metrics are excluded. The request-to-maximum ratio field is hidden; maximum memory remains visible as a safety signal.
 
-| Query | Output column | Meaning |
-|---|---|---|
-| A | `mem request / pod` | Average configured memory request per Pod |
-| B | `p99 mem usage / pod` | Maximum per-Deployment Pod-level P99 working-set memory |
-| C | `mem request / p99` | Request divided by P99 usage, expressed as percent |
-| D | `max mem usage / pod` | Maximum observed working-set memory per Pod |
-| E | `mem request / max` | Request divided by maximum usage, expressed as percent |
-| F | `mem limit / pod` | Average configured memory limit per Pod |
-| G | `oom kills` | Total OOM events over the selected range |
+| Query | Output column | Meaning | Visibility/use |
+|---|---|---|---|
+| A | `mem request / pod` | Average configured memory request per Pod | Visible |
+| B | `p99 mem usage / pod` | Maximum per-Deployment Pod-level P99 working-set memory | Visible sizing baseline |
+| C | `p99 mem usage / avg request` | P99 usage divided by average request, expressed as percent | Visible |
+| D | `max mem usage / pod` | Maximum observed working-set memory per Pod | Visible safety signal |
+| E | `mem request / max` | Request divided by maximum usage, expressed as percent | Hidden diagnostic |
+| F | `mem limit / pod` | Average configured memory limit per Pod | Visible |
+| G | `oom kills` | Total OOM events over the selected range | Visible |
 
 ### Query A: Memory request per Pod
 
@@ -347,10 +347,10 @@ Calculates Pod working-set memory, computes the 99th percentile over the selecte
 ### Query C: Memory request divided by P99 usage
 
 ```promql
-100 * (avg by (workload, deployment) (label_join(label_replace(sum by (namespace, pod) (kube_pod_container_resource_requests{resource="memory",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))) / clamp_min((max by (workload, deployment) (label_join(label_replace(quantile_over_time(0.99, (sum by (namespace, pod) (max by (namespace, pod, container) (container_memory_working_set_bytes{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"})))[$__range:]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))), 1)
+100 * (max by (workload, deployment) (label_join(label_replace(quantile_over_time(0.99, (sum by (namespace, pod) (max by (namespace, pod, container) (container_memory_working_set_bytes{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"})))[$__range:]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment")) / clamp_min((avg by (workload, deployment) (label_join(label_replace(sum by (namespace, pod) (kube_pod_container_resource_requests{resource="memory",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))), 1)
 ```
 
-Divides average memory request by the Deployment's highest P99 memory usage. `clamp_min` prevents division by values below 1 byte. Thresholds: yellow from 70%, red from 85%.
+Divides the Deployment's highest P99 memory usage by average memory request. `clamp_min` prevents division by values below 1 byte. Thresholds: green below 80%, yellow from 80%, red from 100%.
 
 ### Query D: Maximum memory usage per Pod
 
@@ -360,13 +360,13 @@ max by (workload, deployment) (label_join(label_replace(max_over_time((sum by (n
 
 Finds maximum working-set memory over the selected range, then keeps the highest value per Deployment.
 
-### Query E: Memory request divided by maximum usage
+### Query E: Memory request divided by maximum usage (hidden diagnostic)
 
 ```promql
 100 * (avg by (workload, deployment) (label_join(label_replace(sum by (namespace, pod) (kube_pod_container_resource_requests{resource="memory",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))) / clamp_min((max by (workload, deployment) (label_join(label_replace(max_over_time((sum by (namespace, pod) (max by (namespace, pod, container) (container_memory_working_set_bytes{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"})))[$__range:]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))), 1)
 ```
 
-Divides average memory request by maximum observed memory usage. Thresholds: yellow from 70%, red from 85%.
+Divides average memory request by maximum observed memory usage. Field hidden from dashboard output; use maximum memory usage directly as safety signal.
 
 ### Query F: Memory limit per Pod
 
@@ -470,24 +470,24 @@ quantile by (workload, deployment) (0.95, label_join(label_replace(quantile_over
 
 ## Memory Recommended Sizing
 
-Panel description: steady-state recommendation only. Request is based on per-Pod P99 memory over the selected range. Limit suggestions are based on per-Pod maximum memory over the selected range.
+Panel description: steady-state recommendation only. Request is based on per-Pod P99 memory over the selected range. Limit suggestions are based on per-Pod maximum memory over the selected range. Raw P99 and maximum usage fields remain as hidden query baselines; only recommendation fields are displayed.
 
-| Query | Output column | Formula | Use |
+| Query | Output column | Formula | Visibility/use |
 |---|---|---|---|
-| A | `p99 mem usage / pod` | P99 memory usage | Baseline request signal |
-| B | `max mem usage / pod` | Maximum memory usage | Baseline limit signal |
-| C | `recommended mem request +10%` | P99 usage x 1.10 | Candidate request |
-| D | `recommended mem request +20%` | P99 usage x 1.20 | More conservative request |
-| E | `recommended mem limit +30%` | Maximum usage x 1.30 | Candidate limit |
-| F | `recommended mem limit +50%` | Maximum usage x 1.50 | More conservative limit |
+| A | `p99 mem usage / pod` | P99 memory usage | Hidden baseline for request recommendations |
+| B | `max mem usage / pod` | Maximum memory usage | Hidden baseline for limit recommendations |
+| C | `recommended mem request +10%` | P99 usage x 1.10 | Visible candidate request |
+| D | `recommended mem request +20%` | P99 usage x 1.20 | Visible conservative request |
+| E | `recommended mem limit +30%` | Maximum usage x 1.30 | Visible candidate limit |
+| F | `recommended mem limit +50%` | Maximum usage x 1.50 | Visible conservative limit |
 
-### Query A: P99 memory usage
+### Query A: P99 memory usage (hidden baseline)
 
 ```promql
 max by (workload, deployment) (label_join(label_replace(quantile_over_time(0.99, (sum by (namespace, pod) (max by (namespace, pod, container) (container_memory_working_set_bytes{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"})))[$__range:]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))
 ```
 
-### Query B: Maximum memory usage
+### Query B: Maximum memory usage (hidden baseline)
 
 ```promql
 max by (workload, deployment) (label_join(label_replace(max_over_time((sum by (namespace, pod) (max by (namespace, pod, container) (container_memory_working_set_bytes{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"})))[$__range:]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))
@@ -531,11 +531,13 @@ Each table panel uses these transformations:
 
 Null and NaN values display as `N/A` with red coloring.
 
-Percentage columns use threshold coloring:
+Usage-to-request percentage columns use threshold coloring:
 
-- Green: below 70% for request-to-usage ratios.
-- Yellow: 70% and above.
-- Red: 85% and above.
+- Green: below 80%.
+- Yellow: 80% and above.
+- Red: 100% and above.
+
+These ratios now use usage divided by average request. Values above 100% indicate observed high usage exceeding average request.
 
 CPU throttling uses:
 

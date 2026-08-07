@@ -546,7 +546,7 @@
             "type": "prometheus",
             "uid": "$datasource"
           },
-          "expr": "100 * (avg by (workload, deployment) (label_join(label_replace(sum by (namespace, pod) (kube_pod_container_resource_requests{resource=\"cpu\",pod=~\".*-[a-z0-9]{9,10}-[a-z0-9]{5}$\"}), \"deployment\", \"$1\", \"pod\", \"^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$\"), \"workload\", \"/\", \"namespace\", \"deployment\"))) / clamp_min((quantile by (workload, deployment) (0.95, label_join(label_replace(quantile_over_time(0.95, (sum by (namespace, pod) (max by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!=\"\",container!=\"POD\",image!=\"\",pod=~\".*-[a-z0-9]{9,10}-[a-z0-9]{5}$\"}[$__rate_interval]))))[$__range:]), \"deployment\", \"$1\", \"pod\", \"^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$\"), \"workload\", \"/\", \"namespace\", \"deployment\"))), 0.001)",
+          "expr": "100 * (quantile by (workload, deployment) (0.95, label_join(label_replace(quantile_over_time(0.95, (sum by (namespace, pod) (max by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!=\"\",container!=\"POD\",image!=\"\",pod=~\".*-[a-z0-9]{9,10}-[a-z0-9]{5}$\"}[$__rate_interval]))))[$__range:]), \"deployment\", \"$1\", \"pod\", \"^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$\"), \"workload\", \"/\", \"namespace\", \"deployment\")) / clamp_min((avg by (workload, deployment) (label_join(label_replace(sum by (namespace, pod) (kube_pod_container_resource_requests{resource=\"cpu\",pod=~\".*-[a-z0-9]{9,10}-[a-z0-9]{5}$\"}), \"deployment\", \"$1\", \"pod\", \"^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$\"), \"workload\", \"/\", \"namespace\", \"deployment\"))), 0.001)",
           "format": "table",
           "instant": true
         },
@@ -625,7 +625,9 @@
               "deployment 4": true,
               "deployment 5": true,
               "deployment 6": true,
-              "deployment 7": true
+              "deployment 7": true,
+              "Value #E": true,
+              "Value 5": true
             },
             "indexByName": {
               "workload": 0,
@@ -633,31 +635,27 @@
               "Value #B": 2,
               "Value #C": 3,
               "Value #D": 4,
-              "Value #E": 5,
-              "Value #F": 6,
-              "Value #G": 7,
+              "Value #F": 5,
+              "Value #G": 6,
               "Value 1": 1,
               "Value 2": 2,
               "Value 3": 3,
               "Value 4": 4,
-              "Value 5": 5,
-              "Value 6": 6,
-              "Value 7": 7
+              "Value 6": 5,
+              "Value 7": 6
             },
             "renameByName": {
               "workload": "deployment",
               "Value #A": "cpu request / pod",
               "Value #B": "p95 cpu usage / pod (p95 across pods)",
-              "Value #C": "cpu request / p95 cpu usage",
+              "Value #C": "p95 cpu usage / avg request",
               "Value #D": "max cpu usage / pod",
-              "Value #E": "cpu request / max",
               "Value #F": "cpu limit / pod",
               "Value #G": "cpu throttling %",
               "Value 1": "cpu request / pod",
               "Value 2": "p95 cpu usage / pod (p95 across pods)",
-              "Value 3": "cpu request / p95 cpu usage",
+              "Value 3": "p95 cpu usage / avg request",
               "Value 4": "max cpu usage / pod",
-              "Value 5": "cpu request / max",
               "Value 6": "cpu limit / pod",
               "Value 7": "cpu throttling %"
             }
@@ -676,15 +674,11 @@
                 "destinationType": "number"
               },
               {
-                "targetField": "cpu request / p95 cpu usage",
+                "targetField": "p95 cpu usage / avg request",
                 "destinationType": "number"
               },
               {
                 "targetField": "max cpu usage / pod",
-                "destinationType": "number"
-              },
-              {
-                "targetField": "cpu request / max",
                 "destinationType": "number"
               },
               {
@@ -793,7 +787,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "cpu request / p95 cpu usage"
+              "options": "p95 cpu usage / avg request"
             },
             "properties": [
               {
@@ -817,55 +811,11 @@
                     },
                     {
                       "color": "yellow",
-                      "value": 70
+                      "value": 80
                     },
                     {
                       "color": "red",
-                      "value": 85
-                    }
-                  ]
-                }
-              },
-              {
-                "id": "custom.cellOptions",
-                "value": {
-                  "type": "color-background"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "cpu request / max"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "percent"
-              },
-              {
-                "id": "color",
-                "value": {
-                  "mode": "thresholds"
-                }
-              },
-              {
-                "id": "thresholds",
-                "value": {
-                  "mode": "absolute",
-                  "steps": [
-                    {
-                      "color": "green",
-                      "value": null
-                    },
-                    {
-                      "color": "yellow",
-                      "value": 70
-                    },
-                    {
-                      "color": "red",
-                      "value": 85
+                      "value": 100
                     }
                   ]
                 }
@@ -990,7 +940,7 @@
             "type": "prometheus",
             "uid": "$datasource"
           },
-          "expr": "100 * (avg by (workload, deployment) (label_join(label_replace(sum by (namespace, pod) (kube_pod_container_resource_requests{resource=\"memory\",pod=~\".*-[a-z0-9]{9,10}-[a-z0-9]{5}$\"}), \"deployment\", \"$1\", \"pod\", \"^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$\"), \"workload\", \"/\", \"namespace\", \"deployment\"))) / clamp_min((max by (workload, deployment) (label_join(label_replace(quantile_over_time(0.99, (sum by (namespace, pod) (max by (namespace, pod, container) (container_memory_working_set_bytes{container!=\"\",container!=\"POD\",image!=\"\",pod=~\".*-[a-z0-9]{9,10}-[a-z0-9]{5}$\"})))[$__range:]), \"deployment\", \"$1\", \"pod\", \"^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$\"), \"workload\", \"/\", \"namespace\", \"deployment\"))), 1)",
+          "expr": "100 * (max by (workload, deployment) (label_join(label_replace(quantile_over_time(0.99, (sum by (namespace, pod) (max by (namespace, pod, container) (container_memory_working_set_bytes{container!=\"\",container!=\"POD\",image!=\"\",pod=~\".*-[a-z0-9]{9,10}-[a-z0-9]{5}$\"})))[$__range:]), \"deployment\", \"$1\", \"pod\", \"^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$\"), \"workload\", \"/\", \"namespace\", \"deployment\")) / clamp_min((avg by (workload, deployment) (label_join(label_replace(sum by (namespace, pod) (kube_pod_container_resource_requests{resource=\"memory\",pod=~\".*-[a-z0-9]{9,10}-[a-z0-9]{5}$\"}), \"deployment\", \"$1\", \"pod\", \"^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$\"), \"workload\", \"/\", \"namespace\", \"deployment\"))), 1)",
           "format": "table",
           "instant": true
         },
@@ -1069,7 +1019,9 @@
               "deployment 4": true,
               "deployment 5": true,
               "deployment 6": true,
-              "deployment 7": true
+              "deployment 7": true,
+              "Value #E": true,
+              "Value 5": true
             },
             "indexByName": {
               "workload": 0,
@@ -1077,31 +1029,27 @@
               "Value #B": 2,
               "Value #C": 3,
               "Value #D": 4,
-              "Value #E": 5,
-              "Value #F": 6,
-              "Value #G": 7,
+              "Value #F": 5,
+              "Value #G": 6,
               "Value 1": 1,
               "Value 2": 2,
               "Value 3": 3,
               "Value 4": 4,
-              "Value 5": 5,
-              "Value 6": 6,
-              "Value 7": 7
+              "Value 6": 5,
+              "Value 7": 6
             },
             "renameByName": {
               "workload": "deployment",
               "Value #A": "mem request / pod",
               "Value #B": "p99 mem usage / pod",
-              "Value #C": "mem request / p99",
+              "Value #C": "p99 mem usage / avg request",
               "Value #D": "max mem usage / pod",
-              "Value #E": "mem request / max",
               "Value #F": "mem limit / pod",
               "Value #G": "oom kills",
               "Value 1": "mem request / pod",
               "Value 2": "p99 mem usage / pod",
-              "Value 3": "mem request / p99",
+              "Value 3": "p99 mem usage / avg request",
               "Value 4": "max mem usage / pod",
-              "Value 5": "mem request / max",
               "Value 6": "mem limit / pod",
               "Value 7": "oom kills"
             }
@@ -1120,15 +1068,11 @@
                 "destinationType": "number"
               },
               {
-                "targetField": "mem request / p99",
+                "targetField": "p99 mem usage / avg request",
                 "destinationType": "number"
               },
               {
                 "targetField": "max mem usage / pod",
-                "destinationType": "number"
-              },
-              {
-                "targetField": "mem request / max",
                 "destinationType": "number"
               },
               {
@@ -1190,7 +1134,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "mem request / p99"
+              "options": "p99 mem usage / avg request"
             },
             "properties": [
               {
@@ -1214,55 +1158,11 @@
                     },
                     {
                       "color": "yellow",
-                      "value": 70
+                      "value": 80
                     },
                     {
                       "color": "red",
-                      "value": 85
-                    }
-                  ]
-                }
-              },
-              {
-                "id": "custom.cellOptions",
-                "value": {
-                  "type": "color-background"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "mem request / max"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "percent"
-              },
-              {
-                "id": "color",
-                "value": {
-                  "mode": "thresholds"
-                }
-              },
-              {
-                "id": "thresholds",
-                "value": {
-                  "mode": "absolute",
-                  "steps": [
-                    {
-                      "color": "green",
-                      "value": null
-                    },
-                    {
-                      "color": "yellow",
-                      "value": 70
-                    },
-                    {
-                      "color": "red",
-                      "value": 85
+                      "value": 100
                     }
                   ]
                 }
@@ -1971,33 +1871,29 @@
               "deployment 3": true,
               "deployment 4": true,
               "deployment 5": true,
-              "deployment 6": true
+              "deployment 6": true,
+              "Value #A": true,
+              "Value #B": true,
+              "Value 1": true,
+              "Value 2": true
             },
             "indexByName": {
               "workload": 0,
-              "Value #A": 1,
-              "Value #B": 2,
-              "Value #C": 3,
-              "Value #D": 4,
-              "Value #E": 5,
-              "Value #F": 6,
-              "Value 1": 1,
-              "Value 2": 2,
-              "Value 3": 3,
-              "Value 4": 4,
-              "Value 5": 5,
-              "Value 6": 6
+              "Value #C": 1,
+              "Value #D": 2,
+              "Value #E": 3,
+              "Value #F": 4,
+              "Value 3": 1,
+              "Value 4": 2,
+              "Value 5": 3,
+              "Value 6": 4
             },
             "renameByName": {
               "workload": "deployment",
-              "Value #A": "p99 mem usage / pod",
-              "Value #B": "max mem usage / pod",
               "Value #C": "recommended mem request +10%",
               "Value #D": "recommended mem request +20%",
               "Value #E": "recommended mem limit +30%",
               "Value #F": "recommended mem limit +50%",
-              "Value 1": "p99 mem usage / pod",
-              "Value 2": "max mem usage / pod",
               "Value 3": "recommended mem request +10%",
               "Value 4": "recommended mem request +20%",
               "Value 5": "recommended mem limit +30%",
@@ -2009,14 +1905,6 @@
           "id": "convertFieldType",
           "options": {
             "conversions": [
-              {
-                "targetField": "p99 mem usage / pod",
-                "destinationType": "number"
-              },
-              {
-                "targetField": "max mem usage / pod",
-                "destinationType": "number"
-              },
               {
                 "targetField": "recommended mem request +10%",
                 "destinationType": "number"
