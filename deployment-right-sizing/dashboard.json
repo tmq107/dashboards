@@ -811,15 +811,15 @@
                     },
                     {
                       "color": "green",
-                      "value": 20
+                      "value": 10
                     },
                     {
                       "color": "yellow",
-                      "value": 80
+                      "value": 101
                     },
                     {
                       "color": "red",
-                      "value": 105
+                      "value": 111
                     }
                   ]
                 }
@@ -1162,15 +1162,15 @@
                     },
                     {
                       "color": "green",
-                      "value": 20
+                      "value": 10
                     },
                     {
                       "color": "yellow",
-                      "value": 80
+                      "value": 101
                     },
                     {
                       "color": "red",
-                      "value": 105
+                      "value": 111
                     }
                   ]
                 }
