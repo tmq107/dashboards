@@ -40,8 +40,8 @@ Source dashboard: [`dashboard.json`](./dashboard.json)
 | Deployment Memory | Deployment Memory sizing | Table | 7 |
 | Deployment Startup CPU | Deployment Startup CPU | Table | 2 |
 | Deployment Startup Memory | Deployment Startup Memory | Table | 2 |
-| CPU Recommended Sizing | CPU Recommended Sizing | Table | 3 |
-| Memory Recommended Sizing | Memory Recommended Sizing | Table | 4 visible fields, 6 queries |
+| CPU Recommended Sizing | CPU Recommended Sizing | Table | 4 |
+| Memory Recommended Sizing | Memory Recommended Sizing | Table | 5 visible fields, 7 queries |
 
 The row panels are Grafana layout groups. They do not contain PromQL queries.
 
@@ -440,15 +440,16 @@ Uses the same first-five-minutes startup filter and returns the maximum startup 
 
 ## CPU Recommended Sizing
 
-Panel description: request uses P95 across Pod-level P95 CPU usage over the selected range. CPU limit candidates use the higher of startup max CPU P95 and steady-state P95 across Pod-level P95 values, with 20% and 30% headroom.
+Panel description: request uses P95 across Pod-level P95 CPU usage over the selected range. CPU limit candidates use the higher of startup max CPU P95 and steady-state P95 across Pod-level P95 values, with 50%, 2x, and 3x headroom options.
 
 | Query | Output column | Formula | Use |
 |---|---|---|---|
 | A | `recommended cpu request` | P95 across Pod-level P95 CPU usage | Candidate CPU request |
-| B | `recommended cpu limit +20%` | max(startup max CPU P95, steady-state P95) x 1.20 | Candidate CPU limit |
-| C | `recommended cpu limit +30%` | max(startup max CPU P95, steady-state P95) x 1.30 | More conservative CPU limit |
+| B | `recommended cpu limit +50%` | max(startup max CPU P95, steady-state P95) x 1.50 | Candidate CPU limit |
+| C | `recommended cpu limit x2` | max(startup max CPU P95, steady-state P95) x 2.00 | Conservative CPU limit |
+| D | `recommended cpu limit x3` | max(startup max CPU P95, steady-state P95) x 3.00 | Highest CPU limit option |
 
-Query A uses P95 across Pod-level steady-state P95 CPU values. Queries B and C combine two separate phases, add a temporary `source` label, select the higher value per Deployment, and apply headroom. They use `max`, not addition, because startup and steady-state CPU normally occur at different times.
+Query A uses P95 across Pod-level steady-state P95 CPU values. Queries B-D combine two separate phases, add a temporary `source` label, select the higher value per Deployment, and apply headroom. They use `max`, not addition, because startup and steady-state CPU normally occur at different times.
 
 ### Query A: Recommended CPU request
 
@@ -456,16 +457,22 @@ Query A uses P95 across Pod-level steady-state P95 CPU values. Queries B and C c
 quantile by (workload, deployment) (0.95, label_join(label_replace(quantile_over_time(0.95, (sum by (namespace, pod) (max by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}[$__rate_interval]))))[$__range:]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))
 ```
 
-### Query B: CPU limit plus 20%
+### Query B: CPU limit plus 50%
 
 ```promql
-1.20 * max by (workload, deployment) (label_replace(quantile by (workload, deployment) (0.95, label_join(label_replace(max_over_time(((sum by (namespace, pod) (max by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}[1m])))) * on(namespace, pod) group_left() ((time() - kube_pod_start_time{pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}) < bool 300))[$__range:1m]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment")), "source", "startup", "workload", ".+") or label_replace(quantile by (workload, deployment) (0.95, label_join(label_replace(quantile_over_time(0.95, (sum by (namespace, pod) (max by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}[$__rate_interval]))))[$__range:]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment")), "source", "steady", "workload", ".+"))
+1.50 * max by (workload, deployment) (label_replace(quantile by (workload, deployment) (0.95, label_join(label_replace(max_over_time(((sum by (namespace, pod) (max by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}[1m])))) * on(namespace, pod) group_left() ((time() - kube_pod_start_time{pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}) < bool 300))[$__range:1m]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment")), "source", "startup", "workload", ".+") or label_replace(quantile by (workload, deployment) (0.95, label_join(label_replace(quantile_over_time(0.95, (sum by (namespace, pod) (max by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}[$__rate_interval]))))[$__range:]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment")), "source", "steady", "workload", ".+"))
 ```
 
-### Query C: CPU limit plus 30%
+### Query C: CPU limit x2
 
 ```promql
-1.30 * max by (workload, deployment) (label_replace(quantile by (workload, deployment) (0.95, label_join(label_replace(max_over_time(((sum by (namespace, pod) (max by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}[1m])))) * on(namespace, pod) group_left() ((time() - kube_pod_start_time{pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}) < bool 300))[$__range:1m]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment")), "source", "startup", "workload", ".+") or label_replace(quantile by (workload, deployment) (0.95, label_join(label_replace(quantile_over_time(0.95, (sum by (namespace, pod) (max by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}[$__rate_interval]))))[$__range:]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment")), "source", "steady", "workload", ".+"))
+2.00 * max by (workload, deployment) (label_replace(quantile by (workload, deployment) (0.95, label_join(label_replace(max_over_time(((sum by (namespace, pod) (max by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}[1m])))) * on(namespace, pod) group_left() ((time() - kube_pod_start_time{pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}) < bool 300))[$__range:1m]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment")), "source", "startup", "workload", ".+") or label_replace(quantile by (workload, deployment) (0.95, label_join(label_replace(quantile_over_time(0.95, (sum by (namespace, pod) (max by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}[$__rate_interval]))))[$__range:]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment")), "source", "steady", "workload", ".+"))
+```
+
+### Query D: CPU limit x3
+
+```promql
+3.00 * max by (workload, deployment) (label_replace(quantile by (workload, deployment) (0.95, label_join(label_replace(max_over_time(((sum by (namespace, pod) (max by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}[1m])))) * on(namespace, pod) group_left() ((time() - kube_pod_start_time{pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}) < bool 300))[$__range:1m]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment")), "source", "startup", "workload", ".+") or label_replace(quantile by (workload, deployment) (0.95, label_join(label_replace(quantile_over_time(0.95, (sum by (namespace, pod) (max by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}[$__rate_interval]))))[$__range:]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment")), "source", "steady", "workload", ".+"))
 ```
 
 ## Memory Recommended Sizing
@@ -480,6 +487,7 @@ Panel description: steady-state recommendation only. Request is based on per-Pod
 | D | `recommended mem request +20%` | P99 usage x 1.20 | Visible conservative request |
 | E | `recommended mem limit +50%` | Maximum usage x 1.50 | Visible candidate limit |
 | F | `recommended mem limit x2` | Maximum usage x 2.00 | Visible conservative limit |
+| G | `recommended mem limit x3` | Maximum usage x 3.00 | Visible highest limit option |
 
 ### Query A: P99 memory usage (hidden baseline)
 
@@ -520,6 +528,14 @@ Uses historical maximum working-set memory plus 50% headroom. Memory is not thro
 ```
 
 Uses twice historical maximum working-set memory for more bursty or restart-sensitive applications.
+
+### Query G: Memory limit x3
+
+```promql
+3.00 * max by (workload, deployment) (label_join(label_replace(max_over_time((sum by (namespace, pod) (max by (namespace, pod, container) (container_memory_working_set_bytes{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"})))[$__range:]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))
+```
+
+Uses three times historical maximum working-set memory for the most conservative limit option.
 
 ## Transformations and display behavior
 
