@@ -855,11 +855,11 @@
                     },
                     {
                       "color": "yellow",
-                      "value": 5
+                      "value": 10
                     },
                     {
                       "color": "red",
-                      "value": 10
+                      "value": 25
                     }
                   ]
                 }
@@ -1825,7 +1825,7 @@
             "type": "prometheus",
             "uid": "$datasource"
           },
-          "expr": "1.30 * max by (workload, deployment) (label_join(label_replace(max_over_time((sum by (namespace, pod) (max by (namespace, pod, container) (container_memory_working_set_bytes{container!=\"\",container!=\"POD\",image!=\"\",pod=~\".*-[a-z0-9]{9,10}-[a-z0-9]{5}$\"})))[$__range:]), \"deployment\", \"$1\", \"pod\", \"^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$\"), \"workload\", \"/\", \"namespace\", \"deployment\"))",
+          "expr": "1.50 * max by (workload, deployment) (label_join(label_replace(max_over_time((sum by (namespace, pod) (max by (namespace, pod, container) (container_memory_working_set_bytes{container!=\"\",container!=\"POD\",image!=\"\",pod=~\".*-[a-z0-9]{9,10}-[a-z0-9]{5}$\"})))[$__range:]), \"deployment\", \"$1\", \"pod\", \"^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$\"), \"workload\", \"/\", \"namespace\", \"deployment\"))",
           "format": "table",
           "instant": true
         },
@@ -1835,7 +1835,7 @@
             "type": "prometheus",
             "uid": "$datasource"
           },
-          "expr": "1.50 * max by (workload, deployment) (label_join(label_replace(max_over_time((sum by (namespace, pod) (max by (namespace, pod, container) (container_memory_working_set_bytes{container!=\"\",container!=\"POD\",image!=\"\",pod=~\".*-[a-z0-9]{9,10}-[a-z0-9]{5}$\"})))[$__range:]), \"deployment\", \"$1\", \"pod\", \"^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$\"), \"workload\", \"/\", \"namespace\", \"deployment\"))",
+          "expr": "2.00 * max by (workload, deployment) (label_join(label_replace(max_over_time((sum by (namespace, pod) (max by (namespace, pod, container) (container_memory_working_set_bytes{container!=\"\",container!=\"POD\",image!=\"\",pod=~\".*-[a-z0-9]{9,10}-[a-z0-9]{5}$\"})))[$__range:]), \"deployment\", \"$1\", \"pod\", \"^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$\"), \"workload\", \"/\", \"namespace\", \"deployment\"))",
           "format": "table",
           "instant": true
         }
@@ -1892,12 +1892,12 @@
               "workload": "deployment",
               "Value #C": "recommended mem request +10%",
               "Value #D": "recommended mem request +20%",
-              "Value #E": "recommended mem limit +30%",
-              "Value #F": "recommended mem limit +50%",
+              "Value #E": "recommended mem limit +50%",
+              "Value #F": "recommended mem limit x2",
               "Value 3": "recommended mem request +10%",
               "Value 4": "recommended mem request +20%",
-              "Value 5": "recommended mem limit +30%",
-              "Value 6": "recommended mem limit +50%"
+              "Value 5": "recommended mem limit +50%",
+              "Value 6": "recommended mem limit x2"
             }
           }
         },
@@ -1914,11 +1914,11 @@
                 "destinationType": "number"
               },
               {
-                "targetField": "recommended mem limit +30%",
+                "targetField": "recommended mem limit +50%",
                 "destinationType": "number"
               },
               {
-                "targetField": "recommended mem limit +50%",
+                "targetField": "recommended mem limit x2",
                 "destinationType": "number"
               }
             ],

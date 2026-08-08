@@ -478,8 +478,8 @@ Panel description: steady-state recommendation only. Request is based on per-Pod
 | B | `max mem usage / pod` | Maximum memory usage | Hidden baseline for limit recommendations |
 | C | `recommended mem request +10%` | P99 usage x 1.10 | Visible candidate request |
 | D | `recommended mem request +20%` | P99 usage x 1.20 | Visible conservative request |
-| E | `recommended mem limit +30%` | Maximum usage x 1.30 | Visible candidate limit |
-| F | `recommended mem limit +50%` | Maximum usage x 1.50 | Visible conservative limit |
+| E | `recommended mem limit +50%` | Maximum usage x 1.50 | Visible candidate limit |
+| F | `recommended mem limit x2` | Maximum usage x 2.00 | Visible conservative limit |
 
 ### Query A: P99 memory usage (hidden baseline)
 
@@ -505,21 +505,21 @@ max by (workload, deployment) (label_join(label_replace(max_over_time((sum by (n
 1.20 * max by (workload, deployment) (label_join(label_replace(quantile_over_time(0.99, (sum by (namespace, pod) (max by (namespace, pod, container) (container_memory_working_set_bytes{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"})))[$__range:]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))
 ```
 
-### Query E: Memory limit plus 30%
-
-```promql
-1.30 * max by (workload, deployment) (label_join(label_replace(max_over_time((sum by (namespace, pod) (max by (namespace, pod, container) (container_memory_working_set_bytes{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"})))[$__range:]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))
-```
-
-Uses historical maximum working-set memory plus 30% headroom. Memory is not throttled like CPU; exceeding the limit can trigger an OOM kill.
-
-### Query F: Memory limit plus 50%
+### Query E: Memory limit plus 50%
 
 ```promql
 1.50 * max by (workload, deployment) (label_join(label_replace(max_over_time((sum by (namespace, pod) (max by (namespace, pod, container) (container_memory_working_set_bytes{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"})))[$__range:]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))
 ```
 
-Uses historical maximum working-set memory plus 50% headroom for more bursty or restart-sensitive applications.
+Uses historical maximum working-set memory plus 50% headroom. Memory is not throttled like CPU; exceeding the limit can trigger an OOM kill.
+
+### Query F: Memory limit x2
+
+```promql
+2.00 * max by (workload, deployment) (label_join(label_replace(max_over_time((sum by (namespace, pod) (max by (namespace, pod, container) (container_memory_working_set_bytes{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"})))[$__range:]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))
+```
+
+Uses twice historical maximum working-set memory for more bursty or restart-sensitive applications.
 
 ## Transformations and display behavior
 
@@ -539,11 +539,11 @@ Usage-to-request percentage columns use threshold coloring:
 
 These ratios now use usage divided by average request. Values above 100% indicate observed high usage exceeding average request.
 
-CPU throttling uses:
+CPU throttling uses balanced right-sizing thresholds:
 
-- Green: below 5%.
-- Yellow: 5% and above.
-- Red: 10% and above.
+- Green: below 10%.
+- Yellow: 10% and above.
+- Red: 25% and above.
 
 OOM kills use:
 
