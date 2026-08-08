@@ -280,7 +280,7 @@ Calculates each Pod's CPU P95 over the selected range, then calculates P95 acros
 100 * (quantile by (workload, deployment) (0.95, label_join(label_replace(quantile_over_time(0.95, (sum by (namespace, pod) (max by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}[$__rate_interval]))))[$__range:]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment")) / clamp_min((avg by (workload, deployment) (label_join(label_replace(sum by (namespace, pod) (kube_pod_container_resource_requests{resource="cpu",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))), 0.001))
 ```
 
-Divides P95 across Pod-level P95 CPU values by average CPU request. `clamp_min` prevents division by values below `0.001` cores. Thresholds: yellow below 10%, green from 10% to 100%, yellow from 101% to 110%, red from 111%.
+Divides P95 across Pod-level P95 CPU values by average CPU request. `clamp_min` prevents division by values below `0.001` cores. Thresholds: yellow below 10%, green from 10% to 100%, yellow from 101% to 120%, red from 121%.
 
 ### Query D: Maximum CPU usage per Pod
 
@@ -350,7 +350,7 @@ Calculates Pod working-set memory, computes the 99th percentile over the selecte
 100 * (max by (workload, deployment) (label_join(label_replace(quantile_over_time(0.99, (sum by (namespace, pod) (max by (namespace, pod, container) (container_memory_working_set_bytes{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"})))[$__range:]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment")) / clamp_min((avg by (workload, deployment) (label_join(label_replace(sum by (namespace, pod) (kube_pod_container_resource_requests{resource="memory",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))), 1))
 ```
 
-Divides the Deployment's highest P99 memory usage by average memory request. `clamp_min` prevents division by values below 1 byte. Thresholds: yellow below 10%, green from 10% to 100%, yellow from 101% to 110%, red from 111%.
+Divides the Deployment's highest P99 memory usage by average memory request. `clamp_min` prevents division by values below 1 byte. Thresholds: yellow below 10%, green from 10% to 100%, yellow from 101% to 120%, red from 121%.
 
 ### Query D: Maximum memory usage per Pod
 
@@ -551,8 +551,8 @@ Usage-to-request percentage columns use threshold coloring:
 
 - Yellow: below 10%, possible over-requesting.
 - Green: 10% to 100%.
-- Yellow: 101% to 110%, low headroom warning.
-- Red: 111% and above, usage exceeds request.
+- Yellow: 101% to 120%, low headroom warning.
+- Red: 121% and above, usage exceeds request.
 
 These ratios use usage divided by average request. Values above 100% indicate observed high usage exceeding average request.
 
