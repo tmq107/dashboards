@@ -508,7 +508,7 @@
       "id": 2,
       "type": "table",
       "title": "Deployment CPU sizing",
-      "description": "Deployment name is derived from Deployment-managed pod names. CPU request set / pod lists distinct current requests from live pods; multiple values indicate a rollout or inconsistent pod configuration. This keeps historical pod samples across the selected time range as long as Prometheus retention still has them. Startup-specific metrics are not included in this view.",
+      "description": "Deployment name is derived from Deployment-managed pod names. CPU request set / pod lists distinct current requests from live pods; multiple values indicate a rollout or inconsistent pod configuration. Empty request or limit values display as N/A. This keeps historical pod samples across the selected time range as long as Prometheus retention still has them. Startup-specific metrics are not included in this view.",
       "datasource": {
         "type": "prometheus",
         "uid": "$datasource"
@@ -546,7 +546,7 @@
             "type": "prometheus",
             "uid": "$datasource"
           },
-          "expr": "100 * quantile by (workload, deployment) (0.95, label_join(label_replace((quantile_over_time(0.95, (sum by (namespace, pod) (max by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!=\"\",container!=\"POD\",image!=\"\",pod=~\".*-[a-z0-9]{9,10}-[a-z0-9]{5}$\"}[$__rate_interval]))))[$__range:]) / on (namespace, pod) clamp_min(sum by (namespace, pod) (kube_pod_container_resource_requests{resource=\"cpu\",pod=~\".*-[a-z0-9]{9,10}-[a-z0-9]{5}$\"}), 0.001)), \"deployment\", \"$1\", \"pod\", \"^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$\"), \"workload\", \"/\", \"namespace\", \"deployment\"))", 
+          "expr": "100 * quantile by (workload, deployment) (0.95, label_join(label_replace((quantile_over_time(0.95, (sum by (namespace, pod) (max by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!=\"\",container!=\"POD\",image!=\"\",pod=~\".*-[a-z0-9]{9,10}-[a-z0-9]{5}$\"}[$__rate_interval]))))[$__range:]) / on (namespace, pod) clamp_min(sum by (namespace, pod) (kube_pod_container_resource_requests{resource=\"cpu\",pod=~\".*-[a-z0-9]{9,10}-[a-z0-9]{5}$\"}), 0.001)), \"deployment\", \"$1\", \"pod\", \"^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$\"), \"workload\", \"/\", \"namespace\", \"deployment\"))",
           "format": "table",
           "instant": true
         },
@@ -603,19 +603,82 @@
           "id": "groupBy",
           "options": {
             "fields": {
-              "workload": { "operation": "groupby", "aggregations": [] },
-              "Value #A": { "operation": "aggregate", "aggregations": ["uniqueValues"] },
-              "Value #B": { "operation": "aggregate", "aggregations": ["firstNotNull"] },
-              "Value #C": { "operation": "aggregate", "aggregations": ["firstNotNull"] },
-              "Value #D": { "operation": "aggregate", "aggregations": ["firstNotNull"] },
-              "Value #F": { "operation": "aggregate", "aggregations": ["uniqueValues"] },
-              "Value #G": { "operation": "aggregate", "aggregations": ["firstNotNull"] },
-              "Value 1": { "operation": "aggregate", "aggregations": ["uniqueValues"] },
-              "Value 2": { "operation": "aggregate", "aggregations": ["firstNotNull"] },
-              "Value 3": { "operation": "aggregate", "aggregations": ["firstNotNull"] },
-              "Value 4": { "operation": "aggregate", "aggregations": ["firstNotNull"] },
-              "Value 6": { "operation": "aggregate", "aggregations": ["uniqueValues"] },
-              "Value 7": { "operation": "aggregate", "aggregations": ["firstNotNull"] }
+              "workload": {
+                "operation": "groupby",
+                "aggregations": []
+              },
+              "Value #A": {
+                "operation": "aggregate",
+                "aggregations": [
+                  "uniqueValues"
+                ]
+              },
+              "Value #B": {
+                "operation": "aggregate",
+                "aggregations": [
+                  "firstNotNull"
+                ]
+              },
+              "Value #C": {
+                "operation": "aggregate",
+                "aggregations": [
+                  "firstNotNull"
+                ]
+              },
+              "Value #D": {
+                "operation": "aggregate",
+                "aggregations": [
+                  "firstNotNull"
+                ]
+              },
+              "Value #F": {
+                "operation": "aggregate",
+                "aggregations": [
+                  "uniqueValues"
+                ]
+              },
+              "Value #G": {
+                "operation": "aggregate",
+                "aggregations": [
+                  "firstNotNull"
+                ]
+              },
+              "Value 1": {
+                "operation": "aggregate",
+                "aggregations": [
+                  "uniqueValues"
+                ]
+              },
+              "Value 2": {
+                "operation": "aggregate",
+                "aggregations": [
+                  "firstNotNull"
+                ]
+              },
+              "Value 3": {
+                "operation": "aggregate",
+                "aggregations": [
+                  "firstNotNull"
+                ]
+              },
+              "Value 4": {
+                "operation": "aggregate",
+                "aggregations": [
+                  "firstNotNull"
+                ]
+              },
+              "Value 6": {
+                "operation": "aggregate",
+                "aggregations": [
+                  "uniqueValues"
+                ]
+              },
+              "Value 7": {
+                "operation": "aggregate",
+                "aggregations": [
+                  "firstNotNull"
+                ]
+              }
             }
           }
         },
@@ -738,6 +801,16 @@
               "type": "special",
               "options": {
                 "match": "nan",
+                "result": {
+                  "text": "N/A",
+                  "color": "red"
+                }
+              }
+            },
+            {
+              "type": "regex",
+              "options": {
+                "pattern": "^\\s*(\\[\\])?\\s*$",
                 "result": {
                   "text": "N/A",
                   "color": "red"
@@ -902,7 +975,7 @@
       "id": 4,
       "type": "table",
       "title": "Deployment Memory sizing",
-      "description": "Deployment name is derived from Deployment-managed pod names. Memory request and limit sets list distinct current values from live pods; multiple values indicate a rollout or inconsistent pod configuration. This keeps historical pod samples across the selected time range as long as Prometheus retention still has them. Startup-specific metrics are not included in this view.",
+      "description": "Deployment name is derived from Deployment-managed pod names. Memory request and limit sets list distinct current values from live pods; multiple values indicate a rollout or inconsistent pod configuration. Empty request or limit values display as N/A. This keeps historical pod samples across the selected time range as long as Prometheus retention still has them. Startup-specific metrics are not included in this view.",
       "datasource": {
         "type": "prometheus",
         "uid": "$datasource"
@@ -997,19 +1070,82 @@
           "id": "groupBy",
           "options": {
             "fields": {
-              "workload": { "operation": "groupby", "aggregations": [] },
-              "Value #A": { "operation": "aggregate", "aggregations": ["uniqueValues"] },
-              "Value #B": { "operation": "aggregate", "aggregations": ["firstNotNull"] },
-              "Value #C": { "operation": "aggregate", "aggregations": ["firstNotNull"] },
-              "Value #D": { "operation": "aggregate", "aggregations": ["firstNotNull"] },
-              "Value #F": { "operation": "aggregate", "aggregations": ["uniqueValues"] },
-              "Value #G": { "operation": "aggregate", "aggregations": ["firstNotNull"] },
-              "Value 1": { "operation": "aggregate", "aggregations": ["uniqueValues"] },
-              "Value 2": { "operation": "aggregate", "aggregations": ["firstNotNull"] },
-              "Value 3": { "operation": "aggregate", "aggregations": ["firstNotNull"] },
-              "Value 4": { "operation": "aggregate", "aggregations": ["firstNotNull"] },
-              "Value 6": { "operation": "aggregate", "aggregations": ["uniqueValues"] },
-              "Value 7": { "operation": "aggregate", "aggregations": ["firstNotNull"] }
+              "workload": {
+                "operation": "groupby",
+                "aggregations": []
+              },
+              "Value #A": {
+                "operation": "aggregate",
+                "aggregations": [
+                  "uniqueValues"
+                ]
+              },
+              "Value #B": {
+                "operation": "aggregate",
+                "aggregations": [
+                  "firstNotNull"
+                ]
+              },
+              "Value #C": {
+                "operation": "aggregate",
+                "aggregations": [
+                  "firstNotNull"
+                ]
+              },
+              "Value #D": {
+                "operation": "aggregate",
+                "aggregations": [
+                  "firstNotNull"
+                ]
+              },
+              "Value #F": {
+                "operation": "aggregate",
+                "aggregations": [
+                  "uniqueValues"
+                ]
+              },
+              "Value #G": {
+                "operation": "aggregate",
+                "aggregations": [
+                  "firstNotNull"
+                ]
+              },
+              "Value 1": {
+                "operation": "aggregate",
+                "aggregations": [
+                  "uniqueValues"
+                ]
+              },
+              "Value 2": {
+                "operation": "aggregate",
+                "aggregations": [
+                  "firstNotNull"
+                ]
+              },
+              "Value 3": {
+                "operation": "aggregate",
+                "aggregations": [
+                  "firstNotNull"
+                ]
+              },
+              "Value 4": {
+                "operation": "aggregate",
+                "aggregations": [
+                  "firstNotNull"
+                ]
+              },
+              "Value 6": {
+                "operation": "aggregate",
+                "aggregations": [
+                  "uniqueValues"
+                ]
+              },
+              "Value 7": {
+                "operation": "aggregate",
+                "aggregations": [
+                  "firstNotNull"
+                ]
+              }
             }
           }
         },
@@ -1132,6 +1268,16 @@
               "type": "special",
               "options": {
                 "match": "nan",
+                "result": {
+                  "text": "N/A",
+                  "color": "red"
+                }
+              }
+            },
+            {
+              "type": "regex",
+              "options": {
+                "pattern": "^\\s*(\\[\\])?\\s*$",
                 "result": {
                   "text": "N/A",
                   "color": "red"
