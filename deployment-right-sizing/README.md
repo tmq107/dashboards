@@ -252,7 +252,7 @@ All values are joined by `workload`, displayed as `deployment`, and sorted by de
 |---|---|---|---|
 | A | `cpu request set / pod` | Distinct current configured CPU requests across live Pods | Visible |
 | B | `p95 cpu usage / pod (p95 across pods)` | P95 across Pod-level P95 CPU values | Visible sizing baseline |
-| C | `p95 cpu usage / request (p95 across pods)` | P95 of each Pod's usage/request ratio, expressed as percent | Visible |
+| C | `p95 cpu usage / request (p95 across pods)` | Historical P95 usage divided by the current average request setting, expressed as percent | Visible |
 | D | `max cpu usage / pod` | Maximum observed CPU usage per Pod over the selected range | Visible safety signal |
 | E | `cpu request / max` | Request divided by maximum usage, expressed as percent | Hidden diagnostic |
 | F | `cpu limit set / pod` | Distinct current configured CPU limits across live Pods | Visible |
@@ -277,10 +277,10 @@ Calculates each Pod's CPU P95 over the selected range, then calculates P95 acros
 ### Query C: Per-Pod CPU usage divided by request
 
 ```promql
-100 * quantile by (workload, deployment) (0.95, label_join(label_replace((quantile_over_time(0.95, (sum by (namespace, pod) (max by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}[$__rate_interval]))))[$__range:]) / on (namespace, pod) clamp_min(sum by (namespace, pod) (kube_pod_container_resource_requests{resource="cpu",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}), 0.001)), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))
+100 * (quantile by (workload, deployment) (0.95, label_join(label_replace(quantile_over_time(0.95, (sum by (namespace, pod) (max by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!="",container!="POD",image!="",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}[$__rate_interval]))))[$__range:]), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment")) / clamp_min((avg by (workload, deployment) (label_join(label_replace(sum by (namespace, pod) (kube_pod_container_resource_requests{resource="cpu",pod=~".*-[a-z0-9]{9,10}-[a-z0-9]{5}$"}), "deployment", "$1", "pod", "^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$"), "workload", "/", "namespace", "deployment"))), 0.001))
 ```
 
-Divides each Pod's P95 CPU usage by that same Pod's current CPU request before calculating the Deployment P95. This preserves correct comparison during rollouts where Pods have different requests. `clamp_min` prevents division by values below `0.001` cores. Thresholds: yellow below 10%, green from 10% to 100%, yellow from 101% to 120%, red from 121%.
+Divides historical Deployment P95 CPU usage, including old Pods, by the current average request setting. This intentionally compares retained historical usage against the current configuration. `clamp_min` prevents division by values below `0.001` cores. Thresholds: yellow below 10%, green from 10% to 100%, yellow from 101% to 120%, red from 121%.
 
 ### Query D: Maximum CPU usage per Pod
 
