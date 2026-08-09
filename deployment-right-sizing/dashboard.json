@@ -136,8 +136,7 @@
                 "value": null
               }
             ]
-          },
-          "unit": "cores"
+          }
         },
         "overrides": []
       },
@@ -200,8 +199,7 @@
                 "value": null
               }
             ]
-          },
-          "unit": "cores"
+          }
         },
         "overrides": []
       },
@@ -392,8 +390,7 @@
                 "value": null
               }
             ]
-          },
-          "unit": "cores"
+          }
         },
         "overrides": []
       },
@@ -829,30 +826,6 @@
           }
         },
         "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "p95 cpu usage / pod (p95 across pods)"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "cores"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "max cpu usage / pod"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "cores"
-              }
-            ]
-          },
           {
             "matcher": {
               "id": "byName",
@@ -1543,32 +1516,7 @@
             ]
           }
         },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "startup max cpu / pod p95"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "cores"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "startup max cpu / pod max"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "cores"
-              }
-            ]
-          }
-        ]
+        "overrides": []
       },
       "options": {
         "showHeader": true,
@@ -1775,7 +1723,7 @@
             "type": "prometheus",
             "uid": "$datasource"
           },
-          "expr": "quantile by (workload, deployment) (0.95, label_join(label_replace(quantile_over_time(0.95, (sum by (namespace, pod) (max by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!=\"\",container!=\"POD\",image!=\"\",pod=~\".*-[a-z0-9]{9,10}-[a-z0-9]{5}$\"}[$__rate_interval]))))[$__range:]), \"deployment\", \"$1\", \"pod\", \"^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$\"), \"workload\", \"/\", \"namespace\", \"deployment\"))",
+          "expr": "1000 * (quantile by (workload, deployment) (0.95, label_join(label_replace(quantile_over_time(0.95, (sum by (namespace, pod) (max by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!=\"\",container!=\"POD\",image!=\"\",pod=~\".*-[a-z0-9]{9,10}-[a-z0-9]{5}$\"}[$__rate_interval]))))[$__range:]), \"deployment\", \"$1\", \"pod\", \"^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$\"), \"workload\", \"/\", \"namespace\", \"deployment\")))",
           "format": "table",
           "instant": true
         },
@@ -1785,7 +1733,7 @@
             "type": "prometheus",
             "uid": "$datasource"
           },
-          "expr": "1.50 * max by (workload, deployment) (label_replace(quantile by (workload, deployment) (0.95, label_join(label_replace(max_over_time(((sum by (namespace, pod) (max by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!=\"\",container!=\"POD\",image!=\"\",pod=~\".*-[a-z0-9]{9,10}-[a-z0-9]{5}$\"}[1m])))) * on(namespace, pod) group_left() ((time() - kube_pod_start_time{pod=~\".*-[a-z0-9]{9,10}-[a-z0-9]{5}$\"}) < bool 300))[$__range:1m]), \"deployment\", \"$1\", \"pod\", \"^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$\"), \"workload\", \"/\", \"namespace\", \"deployment\")), \"source\", \"startup\", \"workload\", \".+\") or label_replace(quantile by (workload, deployment) (0.95, label_join(label_replace(quantile_over_time(0.95, (sum by (namespace, pod) (max by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!=\"\",container!=\"POD\",image!=\"\",pod=~\".*-[a-z0-9]{9,10}-[a-z0-9]{5}$\"}[$__rate_interval]))))[$__range:]), \"deployment\", \"$1\", \"pod\", \"^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$\"), \"workload\", \"/\", \"namespace\", \"deployment\")), \"source\", \"steady\", \"workload\", \".+\"))",
+          "expr": "1000 * (1.50 * max by (workload, deployment) (label_replace(quantile by (workload, deployment) (0.95, label_join(label_replace(max_over_time(((sum by (namespace, pod) (max by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!=\"\",container!=\"POD\",image!=\"\",pod=~\".*-[a-z0-9]{9,10}-[a-z0-9]{5}$\"}[1m])))) * on(namespace, pod) group_left() ((time() - kube_pod_start_time{pod=~\".*-[a-z0-9]{9,10}-[a-z0-9]{5}$\"}) < bool 300))[$__range:1m]), \"deployment\", \"$1\", \"pod\", \"^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$\"), \"workload\", \"/\", \"namespace\", \"deployment\")), \"source\", \"startup\", \"workload\", \".+\") or label_replace(quantile by (workload, deployment) (0.95, label_join(label_replace(quantile_over_time(0.95, (sum by (namespace, pod) (max by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!=\"\",container!=\"POD\",image!=\"\",pod=~\".*-[a-z0-9]{9,10}-[a-z0-9]{5}$\"}[$__rate_interval]))))[$__range:]), \"deployment\", \"$1\", \"pod\", \"^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$\"), \"workload\", \"/\", \"namespace\", \"deployment\")), \"source\", \"steady\", \"workload\", \".+\")))",
           "format": "table",
           "instant": true
         },
@@ -1795,7 +1743,7 @@
             "type": "prometheus",
             "uid": "$datasource"
           },
-          "expr": "2.00 * max by (workload, deployment) (label_replace(quantile by (workload, deployment) (0.95, label_join(label_replace(max_over_time(((sum by (namespace, pod) (max by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!=\"\",container!=\"POD\",image!=\"\",pod=~\".*-[a-z0-9]{9,10}-[a-z0-9]{5}$\"}[1m])))) * on(namespace, pod) group_left() ((time() - kube_pod_start_time{pod=~\".*-[a-z0-9]{9,10}-[a-z0-9]{5}$\"}) < bool 300))[$__range:1m]), \"deployment\", \"$1\", \"pod\", \"^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$\"), \"workload\", \"/\", \"namespace\", \"deployment\")), \"source\", \"startup\", \"workload\", \".+\") or label_replace(quantile by (workload, deployment) (0.95, label_join(label_replace(quantile_over_time(0.95, (sum by (namespace, pod) (max by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!=\"\",container!=\"POD\",image!=\"\",pod=~\".*-[a-z0-9]{9,10}-[a-z0-9]{5}$\"}[$__rate_interval]))))[$__range:]), \"deployment\", \"$1\", \"pod\", \"^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$\"), \"workload\", \"/\", \"namespace\", \"deployment\")), \"source\", \"steady\", \"workload\", \".+\"))",
+          "expr": "1000 * (2.00 * max by (workload, deployment) (label_replace(quantile by (workload, deployment) (0.95, label_join(label_replace(max_over_time(((sum by (namespace, pod) (max by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!=\"\",container!=\"POD\",image!=\"\",pod=~\".*-[a-z0-9]{9,10}-[a-z0-9]{5}$\"}[1m])))) * on(namespace, pod) group_left() ((time() - kube_pod_start_time{pod=~\".*-[a-z0-9]{9,10}-[a-z0-9]{5}$\"}) < bool 300))[$__range:1m]), \"deployment\", \"$1\", \"pod\", \"^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$\"), \"workload\", \"/\", \"namespace\", \"deployment\")), \"source\", \"startup\", \"workload\", \".+\") or label_replace(quantile by (workload, deployment) (0.95, label_join(label_replace(quantile_over_time(0.95, (sum by (namespace, pod) (max by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!=\"\",container!=\"POD\",image!=\"\",pod=~\".*-[a-z0-9]{9,10}-[a-z0-9]{5}$\"}[$__rate_interval]))))[$__range:]), \"deployment\", \"$1\", \"pod\", \"^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$\"), \"workload\", \"/\", \"namespace\", \"deployment\")), \"source\", \"steady\", \"workload\", \".+\")))",
           "format": "table",
           "instant": true
         },
@@ -1805,7 +1753,7 @@
             "type": "prometheus",
             "uid": "$datasource"
           },
-          "expr": "3.00 * max by (workload, deployment) (label_replace(quantile by (workload, deployment) (0.95, label_join(label_replace(max_over_time(((sum by (namespace, pod) (max by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!=\"\",container!=\"POD\",image!=\"\",pod=~\".*-[a-z0-9]{9,10}-[a-z0-9]{5}$\"}[1m])))) * on(namespace, pod) group_left() ((time() - kube_pod_start_time{pod=~\".*-[a-z0-9]{9,10}-[a-z0-9]{5}$\"}) < bool 300))[$__range:1m]), \"deployment\", \"$1\", \"pod\", \"^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$\"), \"workload\", \"/\", \"namespace\", \"deployment\")), \"source\", \"startup\", \"workload\", \".+\") or label_replace(quantile by (workload, deployment) (0.95, label_join(label_replace(quantile_over_time(0.95, (sum by (namespace, pod) (max by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!=\"\",container!=\"POD\",image!=\"\",pod=~\".*-[a-z0-9]{9,10}-[a-z0-9]{5}$\"}[$__rate_interval]))))[$__range:]), \"deployment\", \"$1\", \"pod\", \"^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$\"), \"workload\", \"/\", \"namespace\", \"deployment\")), \"source\", \"steady\", \"workload\", \".+\"))",
+          "expr": "1000 * (3.00 * max by (workload, deployment) (label_replace(quantile by (workload, deployment) (0.95, label_join(label_replace(max_over_time(((sum by (namespace, pod) (max by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!=\"\",container!=\"POD\",image!=\"\",pod=~\".*-[a-z0-9]{9,10}-[a-z0-9]{5}$\"}[1m])))) * on(namespace, pod) group_left() ((time() - kube_pod_start_time{pod=~\".*-[a-z0-9]{9,10}-[a-z0-9]{5}$\"}) < bool 300))[$__range:1m]), \"deployment\", \"$1\", \"pod\", \"^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$\"), \"workload\", \"/\", \"namespace\", \"deployment\")), \"source\", \"startup\", \"workload\", \".+\") or label_replace(quantile by (workload, deployment) (0.95, label_join(label_replace(quantile_over_time(0.95, (sum by (namespace, pod) (max by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!=\"\",container!=\"POD\",image!=\"\",pod=~\".*-[a-z0-9]{9,10}-[a-z0-9]{5}$\"}[$__rate_interval]))))[$__range:]), \"deployment\", \"$1\", \"pod\", \"^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$\"), \"workload\", \"/\", \"namespace\", \"deployment\")), \"source\", \"steady\", \"workload\", \".+\")))",
           "format": "table",
           "instant": true
         }
@@ -1914,7 +1862,7 @@
               }
             }
           ],
-          "unit": "cores",
+          "unit": "suffix:m",
           "thresholds": {
             "mode": "absolute",
             "steps": [
