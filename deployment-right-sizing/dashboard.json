@@ -508,7 +508,7 @@
       "id": 2,
       "type": "table",
       "title": "Deployment CPU sizing",
-      "description": "Deployment name is derived from Deployment-managed pod names. This keeps historical pod samples across the selected time range as long as Prometheus retention still has them. Startup-specific metrics are not included in this view.",
+      "description": "Deployment name is derived from Deployment-managed pod names. CPU request set / pod lists distinct current requests from live pods; multiple values indicate a rollout or inconsistent pod configuration. This keeps historical pod samples across the selected time range as long as Prometheus retention still has them. Startup-specific metrics are not included in this view.",
       "datasource": {
         "type": "prometheus",
         "uid": "$datasource"
@@ -526,7 +526,7 @@
             "type": "prometheus",
             "uid": "$datasource"
           },
-          "expr": "avg by (workload, deployment) (label_join(label_replace(sum by (namespace, pod) (kube_pod_container_resource_requests{resource=\"cpu\",pod=~\".*-[a-z0-9]{9,10}-[a-z0-9]{5}$\"}), \"deployment\", \"$1\", \"pod\", \"^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$\"), \"workload\", \"/\", \"namespace\", \"deployment\"))",
+          "expr": "label_join(label_replace(sum by (namespace, pod) (kube_pod_container_resource_requests{resource=\"cpu\",pod=~\".*-[a-z0-9]{9,10}-[a-z0-9]{5}$\"}), \"deployment\", \"$1\", \"pod\", \"^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$\"), \"workload\", \"/\", \"namespace\", \"deployment\")",
           "format": "table",
           "instant": true
         },
@@ -546,7 +546,7 @@
             "type": "prometheus",
             "uid": "$datasource"
           },
-          "expr": "100 * (quantile by (workload, deployment) (0.95, label_join(label_replace(quantile_over_time(0.95, (sum by (namespace, pod) (max by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!=\"\",container!=\"POD\",image!=\"\",pod=~\".*-[a-z0-9]{9,10}-[a-z0-9]{5}$\"}[$__rate_interval]))))[$__range:]), \"deployment\", \"$1\", \"pod\", \"^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$\"), \"workload\", \"/\", \"namespace\", \"deployment\")) / clamp_min((avg by (workload, deployment) (label_join(label_replace(sum by (namespace, pod) (kube_pod_container_resource_requests{resource=\"cpu\",pod=~\".*-[a-z0-9]{9,10}-[a-z0-9]{5}$\"}), \"deployment\", \"$1\", \"pod\", \"^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$\"), \"workload\", \"/\", \"namespace\", \"deployment\"))), 0.001))",
+          "expr": "100 * quantile by (workload, deployment) (0.95, label_join(label_replace((quantile_over_time(0.95, (sum by (namespace, pod) (max by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!=\"\",container!=\"POD\",image!=\"\",pod=~\".*-[a-z0-9]{9,10}-[a-z0-9]{5}$\"}[$__rate_interval]))))[$__range:]) / on (namespace, pod) clamp_min(sum by (namespace, pod) (kube_pod_container_resource_requests{resource=\"cpu\",pod=~\".*-[a-z0-9]{9,10}-[a-z0-9]{5}$\"}), 0.001)), \"deployment\", \"$1\", \"pod\", \"^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$\"), \"workload\", \"/\", \"namespace\", \"deployment\"))", 
           "format": "table",
           "instant": true
         },
@@ -576,7 +576,7 @@
             "type": "prometheus",
             "uid": "$datasource"
           },
-          "expr": "avg by (workload, deployment) (label_join(label_replace(sum by (namespace, pod) (kube_pod_container_resource_limits{resource=\"cpu\",pod=~\".*-[a-z0-9]{9,10}-[a-z0-9]{5}$\"}), \"deployment\", \"$1\", \"pod\", \"^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$\"), \"workload\", \"/\", \"namespace\", \"deployment\"))",
+          "expr": "label_join(label_replace(sum by (namespace, pod) (kube_pod_container_resource_limits{resource=\"cpu\",pod=~\".*-[a-z0-9]{9,10}-[a-z0-9]{5}$\"}), \"deployment\", \"$1\", \"pod\", \"^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$\"), \"workload\", \"/\", \"namespace\", \"deployment\")",
           "format": "table",
           "instant": true
         },
@@ -597,6 +597,26 @@
           "options": {
             "byField": "workload",
             "mode": "outer"
+          }
+        },
+        {
+          "id": "groupBy",
+          "options": {
+            "fields": {
+              "workload": { "operation": "groupby", "aggregations": [] },
+              "Value #A": { "operation": "aggregate", "aggregations": ["uniqueValues"] },
+              "Value #B": { "operation": "aggregate", "aggregations": ["firstNotNull"] },
+              "Value #C": { "operation": "aggregate", "aggregations": ["firstNotNull"] },
+              "Value #D": { "operation": "aggregate", "aggregations": ["firstNotNull"] },
+              "Value #F": { "operation": "aggregate", "aggregations": ["uniqueValues"] },
+              "Value #G": { "operation": "aggregate", "aggregations": ["firstNotNull"] },
+              "Value 1": { "operation": "aggregate", "aggregations": ["uniqueValues"] },
+              "Value 2": { "operation": "aggregate", "aggregations": ["firstNotNull"] },
+              "Value 3": { "operation": "aggregate", "aggregations": ["firstNotNull"] },
+              "Value 4": { "operation": "aggregate", "aggregations": ["firstNotNull"] },
+              "Value 6": { "operation": "aggregate", "aggregations": ["uniqueValues"] },
+              "Value 7": { "operation": "aggregate", "aggregations": ["firstNotNull"] }
+            }
           }
         },
         {
@@ -631,33 +651,33 @@
             },
             "indexByName": {
               "workload": 0,
-              "Value #A": 1,
-              "Value #B": 2,
-              "Value #C": 3,
-              "Value #D": 4,
-              "Value #F": 5,
-              "Value #G": 6,
-              "Value 1": 1,
-              "Value 2": 2,
-              "Value 3": 3,
-              "Value 4": 4,
-              "Value 6": 5,
-              "Value 7": 6
+              "Value #A (uniqueValues)": 1,
+              "Value #B (firstNotNull)": 2,
+              "Value #C (firstNotNull)": 3,
+              "Value #D (firstNotNull)": 4,
+              "Value #F (uniqueValues)": 5,
+              "Value #G (firstNotNull)": 6,
+              "Value 1 (uniqueValues)": 1,
+              "Value 2 (firstNotNull)": 2,
+              "Value 3 (firstNotNull)": 3,
+              "Value 4 (firstNotNull)": 4,
+              "Value 6 (uniqueValues)": 5,
+              "Value 7 (firstNotNull)": 6
             },
             "renameByName": {
               "workload": "deployment",
-              "Value #A": "cpu request / pod",
-              "Value #B": "p95 cpu usage / pod (p95 across pods)",
-              "Value #C": "p95 cpu usage / avg request",
-              "Value #D": "max cpu usage / pod",
-              "Value #F": "cpu limit / pod",
-              "Value #G": "cpu throttling %",
-              "Value 1": "cpu request / pod",
-              "Value 2": "p95 cpu usage / pod (p95 across pods)",
-              "Value 3": "p95 cpu usage / avg request",
-              "Value 4": "max cpu usage / pod",
-              "Value 6": "cpu limit / pod",
-              "Value 7": "cpu throttling %"
+              "Value #A (uniqueValues)": "cpu request set / pod",
+              "Value #B (firstNotNull)": "p95 cpu usage / pod (p95 across pods)",
+              "Value #C (firstNotNull)": "p95 cpu usage / request (p95 across pods)",
+              "Value #D (firstNotNull)": "max cpu usage / pod",
+              "Value #F (uniqueValues)": "cpu limit set / pod",
+              "Value #G (firstNotNull)": "cpu throttling %",
+              "Value 1 (uniqueValues)": "cpu request set / pod",
+              "Value 2 (firstNotNull)": "p95 cpu usage / pod (p95 across pods)",
+              "Value 3 (firstNotNull)": "p95 cpu usage / request (p95 across pods)",
+              "Value 4 (firstNotNull)": "max cpu usage / pod",
+              "Value 6 (uniqueValues)": "cpu limit set / pod",
+              "Value 7 (firstNotNull)": "cpu throttling %"
             }
           }
         },
@@ -666,15 +686,15 @@
           "options": {
             "conversions": [
               {
-                "targetField": "cpu request / pod",
-                "destinationType": "number"
+                "targetField": "cpu request set / pod",
+                "destinationType": "string"
               },
               {
                 "targetField": "p95 cpu usage / pod (p95 across pods)",
                 "destinationType": "number"
               },
               {
-                "targetField": "p95 cpu usage / avg request",
+                "targetField": "p95 cpu usage / request (p95 across pods)",
                 "destinationType": "number"
               },
               {
@@ -682,8 +702,8 @@
                 "destinationType": "number"
               },
               {
-                "targetField": "cpu limit / pod",
-                "destinationType": "number"
+                "targetField": "cpu limit set / pod",
+                "destinationType": "string"
               },
               {
                 "targetField": "cpu throttling %",
@@ -739,18 +759,6 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "cpu request / pod"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "cores"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
               "options": "p95 cpu usage / pod (p95 across pods)"
             },
             "properties": [
@@ -775,19 +783,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "cpu limit / pod"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "cores"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "p95 cpu usage / avg request"
+              "options": "p95 cpu usage / request (p95 across pods)"
             },
             "properties": [
               {
@@ -906,7 +902,7 @@
       "id": 4,
       "type": "table",
       "title": "Deployment Memory sizing",
-      "description": "Deployment name is derived from Deployment-managed pod names. This keeps historical pod samples across the selected time range as long as Prometheus retention still has them. Startup-specific metrics are not included in this view.",
+      "description": "Deployment name is derived from Deployment-managed pod names. Memory request and limit sets list distinct current values from live pods; multiple values indicate a rollout or inconsistent pod configuration. This keeps historical pod samples across the selected time range as long as Prometheus retention still has them. Startup-specific metrics are not included in this view.",
       "datasource": {
         "type": "prometheus",
         "uid": "$datasource"
@@ -924,7 +920,7 @@
             "type": "prometheus",
             "uid": "$datasource"
           },
-          "expr": "avg by (workload, deployment) (label_join(label_replace(sum by (namespace, pod) (kube_pod_container_resource_requests{resource=\"memory\",pod=~\".*-[a-z0-9]{9,10}-[a-z0-9]{5}$\"}), \"deployment\", \"$1\", \"pod\", \"^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$\"), \"workload\", \"/\", \"namespace\", \"deployment\"))",
+          "expr": "label_join(label_replace(sum by (namespace, pod) (kube_pod_container_resource_requests{resource=\"memory\",pod=~\".*-[a-z0-9]{9,10}-[a-z0-9]{5}$\"}), \"deployment\", \"$1\", \"pod\", \"^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$\"), \"workload\", \"/\", \"namespace\", \"deployment\")",
           "format": "table",
           "instant": true
         },
@@ -974,7 +970,7 @@
             "type": "prometheus",
             "uid": "$datasource"
           },
-          "expr": "avg by (workload, deployment) (label_join(label_replace(sum by (namespace, pod) (kube_pod_container_resource_limits{resource=\"memory\",pod=~\".*-[a-z0-9]{9,10}-[a-z0-9]{5}$\"}), \"deployment\", \"$1\", \"pod\", \"^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$\"), \"workload\", \"/\", \"namespace\", \"deployment\"))",
+          "expr": "label_join(label_replace(sum by (namespace, pod) (kube_pod_container_resource_limits{resource=\"memory\",pod=~\".*-[a-z0-9]{9,10}-[a-z0-9]{5}$\"}), \"deployment\", \"$1\", \"pod\", \"^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$\"), \"workload\", \"/\", \"namespace\", \"deployment\")",
           "format": "table",
           "instant": true
         },
@@ -995,6 +991,26 @@
           "options": {
             "byField": "workload",
             "mode": "outer"
+          }
+        },
+        {
+          "id": "groupBy",
+          "options": {
+            "fields": {
+              "workload": { "operation": "groupby", "aggregations": [] },
+              "Value #A": { "operation": "aggregate", "aggregations": ["uniqueValues"] },
+              "Value #B": { "operation": "aggregate", "aggregations": ["firstNotNull"] },
+              "Value #C": { "operation": "aggregate", "aggregations": ["firstNotNull"] },
+              "Value #D": { "operation": "aggregate", "aggregations": ["firstNotNull"] },
+              "Value #F": { "operation": "aggregate", "aggregations": ["uniqueValues"] },
+              "Value #G": { "operation": "aggregate", "aggregations": ["firstNotNull"] },
+              "Value 1": { "operation": "aggregate", "aggregations": ["uniqueValues"] },
+              "Value 2": { "operation": "aggregate", "aggregations": ["firstNotNull"] },
+              "Value 3": { "operation": "aggregate", "aggregations": ["firstNotNull"] },
+              "Value 4": { "operation": "aggregate", "aggregations": ["firstNotNull"] },
+              "Value 6": { "operation": "aggregate", "aggregations": ["uniqueValues"] },
+              "Value 7": { "operation": "aggregate", "aggregations": ["firstNotNull"] }
+            }
           }
         },
         {
@@ -1029,33 +1045,33 @@
             },
             "indexByName": {
               "workload": 0,
-              "Value #A": 1,
-              "Value #B": 2,
-              "Value #C": 3,
-              "Value #D": 4,
-              "Value #F": 5,
-              "Value #G": 6,
-              "Value 1": 1,
-              "Value 2": 2,
-              "Value 3": 3,
-              "Value 4": 4,
-              "Value 6": 5,
-              "Value 7": 6
+              "Value #A (uniqueValues)": 1,
+              "Value #B (firstNotNull)": 2,
+              "Value #C (firstNotNull)": 3,
+              "Value #D (firstNotNull)": 4,
+              "Value #F (uniqueValues)": 5,
+              "Value #G (firstNotNull)": 6,
+              "Value 1 (uniqueValues)": 1,
+              "Value 2 (firstNotNull)": 2,
+              "Value 3 (firstNotNull)": 3,
+              "Value 4 (firstNotNull)": 4,
+              "Value 6 (uniqueValues)": 5,
+              "Value 7 (firstNotNull)": 6
             },
             "renameByName": {
               "workload": "deployment",
-              "Value #A": "mem request / pod",
-              "Value #B": "p99 mem usage / pod",
-              "Value #C": "p99 mem usage / avg request",
-              "Value #D": "max mem usage / pod",
-              "Value #F": "mem limit / pod",
-              "Value #G": "oom kills",
-              "Value 1": "mem request / pod",
-              "Value 2": "p99 mem usage / pod",
-              "Value 3": "p99 mem usage / avg request",
-              "Value 4": "max mem usage / pod",
-              "Value 6": "mem limit / pod",
-              "Value 7": "oom kills"
+              "Value #A (uniqueValues)": "memory request set / pod",
+              "Value #B (firstNotNull)": "p99 mem usage / pod",
+              "Value #C (firstNotNull)": "p99 mem usage / avg request",
+              "Value #D (firstNotNull)": "max mem usage / pod",
+              "Value #F (uniqueValues)": "memory limit set / pod",
+              "Value #G (firstNotNull)": "oom kills",
+              "Value 1 (uniqueValues)": "memory request set / pod",
+              "Value 2 (firstNotNull)": "p99 mem usage / pod",
+              "Value 3 (firstNotNull)": "p99 mem usage / avg request",
+              "Value 4 (firstNotNull)": "max mem usage / pod",
+              "Value 6 (uniqueValues)": "memory limit set / pod",
+              "Value 7 (firstNotNull)": "oom kills"
             }
           }
         },
@@ -1064,8 +1080,8 @@
           "options": {
             "conversions": [
               {
-                "targetField": "mem request / pod",
-                "destinationType": "number"
+                "targetField": "memory request set / pod",
+                "destinationType": "string"
               },
               {
                 "targetField": "p99 mem usage / pod",
@@ -1080,8 +1096,8 @@
                 "destinationType": "number"
               },
               {
-                "targetField": "mem limit / pod",
-                "destinationType": "number"
+                "targetField": "memory limit set / pod",
+                "destinationType": "string"
               },
               {
                 "targetField": "oom kills",
