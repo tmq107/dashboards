@@ -1766,6 +1766,148 @@
       }
     },
     {
+      "id": 13,
+      "type": "row",
+      "title": "Upstream Service latency",
+      "collapsed": true,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 79
+      },
+      "panels": []
+    },
+    {
+      "id": 14,
+      "type": "table",
+      "title": "Upstream Service latency",
+      "description": "P99 upstream request latency from kgateway/Envoy over the last 5 minutes. Standard kube_* cluster names are parsed into namespace and service labels. Custom clusters remain identified by envoy_cluster_name. This is Service/cluster-level latency, not Deployment-level latency.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "$datasource"
+      },
+      "gridPos": {
+        "h": 18,
+        "w": 24,
+        "x": 0,
+        "y": 80
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+          },
+          "expr": "histogram_quantile(0.99, sum by (le, envoy_cluster_name, namespace, service) (label_replace(label_replace(rate(envoy_cluster_upstream_rq_time_bucket{envoy_cluster_name!=\"admin_port_cluster\"}[5m]), \"namespace\", \"$1\", \"envoy_cluster_name\", \"^kube_([^_]+)_.+_[^_]+$\"), \"service\", \"$1\", \"envoy_cluster_name\", \"^kube_[^_]+_(.+)_[^_]+$\")))",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "indexByName": {
+              "namespace": 0,
+              "service": 1,
+              "envoy_cluster_name": 2,
+              "Value": 3
+            },
+            "renameByName": {
+              "Value": "upstream p99 latency (5m)"
+            }
+          }
+        },
+        {
+          "id": "convertFieldType",
+          "options": {
+            "conversions": [
+              {
+                "targetField": "upstream p99 latency (5m)",
+                "destinationType": "number"
+              }
+            ],
+            "fields": {}
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "left",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": true
+          },
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null",
+                "result": {
+                  "text": "N/A",
+                  "color": "red"
+                }
+              }
+            },
+            {
+              "type": "special",
+              "options": {
+                "match": "nan",
+                "result": {
+                  "text": "N/A",
+                  "color": "red"
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "upstream p99 latency (5m)"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "ms"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "sortBy": [
+          {
+            "displayName": "envoy_cluster_name",
+            "desc": false
+          }
+        ]
+      }
+    },
+    {
       "id": 5,
       "type": "row",
       "title": "CPU Recommended Sizing",
@@ -1774,7 +1916,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 79
+        "y": 98
       },
       "panels": []
     },
@@ -1791,7 +1933,7 @@
         "h": 16,
         "w": 24,
         "x": 0,
-        "y": 80
+        "y": 99
       },
       "targets": [
         {
@@ -1972,7 +2114,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 96
+        "y": 115
       },
       "panels": []
     },
@@ -1989,7 +2131,7 @@
         "h": 16,
         "w": 24,
         "x": 0,
-        "y": 97
+        "y": 116
       },
       "targets": [
         {
@@ -2211,149 +2353,7 @@
           }
         ]
       }
-    },
-  {
-    "id": 13,
-    "type": "row",
-    "title": "Upstream Service latency",
-    "collapsed": true,
-    "gridPos": {
-      "h": 1,
-      "w": 24,
-      "x": 0,
-      "y": 113
-    },
-    "panels": []
-  },
-  {
-    "id": 14,
-    "type": "table",
-    "title": "Upstream Service latency",
-    "description": "P99 upstream request latency from kgateway/Envoy over the last 5 minutes. Standard kube_* cluster names are parsed into namespace and service labels. Custom clusters remain identified by envoy_cluster_name. This is Service/cluster-level latency, not Deployment-level latency.",
-    "datasource": {
-      "type": "prometheus",
-      "uid": "$datasource"
-    },
-    "gridPos": {
-      "h": 18,
-      "w": 24,
-      "x": 0,
-      "y": 114
-    },
-    "targets": [
-      {
-        "refId": "A",
-        "datasource": {
-          "type": "prometheus",
-          "uid": "$datasource"
-        },
-        "expr": "histogram_quantile(0.99, sum by (le, envoy_cluster_name, namespace, service) (label_replace(label_replace(rate(envoy_cluster_upstream_rq_time_bucket[5m]), \"namespace\", \"$1\", \"envoy_cluster_name\", \"^kube_([^_]+)_.+_[^_]+$\"), \"service\", \"$1\", \"envoy_cluster_name\", \"^kube_[^_]+_(.+)_[^_]+$\")))",
-        "format": "table",
-        "instant": true
-      }
-    ],
-    "transformations": [
-      {
-        "id": "organize",
-        "options": {
-          "excludeByName": {
-            "Time": true
-          },
-          "indexByName": {
-            "namespace": 0,
-            "service": 1,
-            "envoy_cluster_name": 2,
-            "Value": 3
-          },
-          "renameByName": {
-            "Value": "upstream p99 latency (5m)"
-          }
-        }
-      },
-      {
-        "id": "convertFieldType",
-        "options": {
-          "conversions": [
-            {
-              "targetField": "upstream p99 latency (5m)",
-              "destinationType": "number"
-            }
-          ],
-          "fields": {}
-        }
-      }
-    ],
-    "fieldConfig": {
-      "defaults": {
-        "custom": {
-          "align": "left",
-          "cellOptions": {
-            "type": "auto"
-          },
-          "filterable": true
-        },
-        "mappings": [
-          {
-            "type": "special",
-            "options": {
-              "match": "null",
-              "result": {
-                "text": "N/A",
-                "color": "red"
-              }
-            }
-          },
-          {
-            "type": "special",
-            "options": {
-              "match": "nan",
-              "result": {
-                "text": "N/A",
-                "color": "red"
-              }
-            }
-          }
-        ],
-        "thresholds": {
-          "mode": "absolute",
-          "steps": [
-            {
-              "color": "green",
-              "value": null
-            }
-          ]
-        }
-      },
-      "overrides": [
-        {
-          "matcher": {
-            "id": "byName",
-            "options": "upstream p99 latency (5m)"
-          },
-          "properties": [
-            {
-              "id": "unit",
-              "value": "ms"
-            },
-            {
-              "id": "decimals",
-              "value": 2
-            }
-          ]
-        }
-      ]
-    },
-    "options": {
-      "showHeader": true,
-      "cellHeight": "sm",
-      "sortBy": [
-        {
-          "displayName": "envoy_cluster_name",
-          "desc": false
-        }
-      ]
     }
-  }
   ],
   "links": [
     {
