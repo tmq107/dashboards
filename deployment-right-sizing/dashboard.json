@@ -586,6 +586,16 @@
           "expr": "max by (workload, deployment) (label_join(label_replace(max_over_time((100 * (sum by (namespace, pod) (rate(container_cpu_cfs_throttled_periods_total{container!=\"\",container!=\"POD\",image!=\"\",pod=~\".*-[a-z0-9]{9,10}-[a-z0-9]{5}$\"}[$__rate_interval]))) / clamp_min((sum by (namespace, pod) (rate(container_cpu_cfs_periods_total{container!=\"\",container!=\"POD\",image!=\"\",pod=~\".*-[a-z0-9]{9,10}-[a-z0-9]{5}$\"}[$__rate_interval]))), 0.001))[$__range:]), \"deployment\", \"$1\", \"pod\", \"^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$\"), \"workload\", \"/\", \"namespace\", \"deployment\"))",
           "format": "table",
           "instant": true
+        },
+        {
+          "refId": "H",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+          },
+          "expr": "max by (workload, deployment) (label_join(label_replace((100 * (sum by (namespace, pod) (rate(container_cpu_cfs_throttled_periods_total{container!=\"\",container!=\"POD\",image!=\"\",pod=~\".*-[a-z0-9]{9,10}-[a-z0-9]{5}$\"}[5m]))) / clamp_min((sum by (namespace, pod) (rate(container_cpu_cfs_periods_total{container!=\"\",container!=\"POD\",image!=\"\",pod=~\".*-[a-z0-9]{9,10}-[a-z0-9]{5}$\"}[5m]))), 0.001)), \"deployment\", \"$1\", \"pod\", \"^(.*)-[a-z0-9]{9,10}-[a-z0-9]{5}$\"), \"workload\", \"/\", \"namespace\", \"deployment\"))",
+          "format": "table",
+          "instant": true
         }
       ],
       "transformations": [
@@ -640,6 +650,12 @@
                   "firstNotNull"
                 ]
               },
+              "Value #H": {
+                "operation": "aggregate",
+                "aggregations": [
+                  "firstNotNull"
+                ]
+              },
               "Value 1": {
                 "operation": "aggregate",
                 "aggregations": [
@@ -675,6 +691,12 @@
                 "aggregations": [
                   "firstNotNull"
                 ]
+              },
+              "Value 8": {
+                "operation": "aggregate",
+                "aggregations": [
+                  "firstNotNull"
+                ]
               }
             }
           }
@@ -691,6 +713,7 @@
               "Time 5": true,
               "Time 6": true,
               "Time 7": true,
+              "Time 8": true,
               "workload 1": true,
               "workload 2": true,
               "workload 3": true,
@@ -698,6 +721,7 @@
               "workload 5": true,
               "workload 6": true,
               "workload 7": true,
+              "workload 8": true,
               "deployment": true,
               "deployment 1": true,
               "deployment 2": true,
@@ -706,6 +730,7 @@
               "deployment 5": true,
               "deployment 6": true,
               "deployment 7": true,
+              "deployment 8": true,
               "Value #E": true,
               "Value 5": true
             },
@@ -717,12 +742,14 @@
               "Value #D (firstNotNull)": 4,
               "Value #F (uniqueValues)": 5,
               "Value #G (firstNotNull)": 6,
+              "Value #H (firstNotNull)": 7,
               "Value 1 (uniqueValues)": 1,
               "Value 2 (firstNotNull)": 2,
               "Value 3 (firstNotNull)": 3,
               "Value 4 (firstNotNull)": 4,
               "Value 6 (uniqueValues)": 5,
-              "Value 7 (firstNotNull)": 6
+              "Value 7 (firstNotNull)": 6,
+              "Value 8 (firstNotNull)": 7
             },
             "renameByName": {
               "workload": "deployment",
@@ -732,12 +759,14 @@
               "Value #D (firstNotNull)": "max cpu usage / pod",
               "Value #F (uniqueValues)": "cpu limit set / pod",
               "Value #G (firstNotNull)": "cpu throttling %",
+              "Value #H (firstNotNull)": "cpu throttling % (5m)",
               "Value 1 (uniqueValues)": "cpu request set / pod",
               "Value 2 (firstNotNull)": "p95 cpu usage / pod (p95 across pods)",
               "Value 3 (firstNotNull)": "p95 cpu usage / request (p95 across pods)",
               "Value 4 (firstNotNull)": "max cpu usage / pod",
               "Value 6 (uniqueValues)": "cpu limit set / pod",
-              "Value 7 (firstNotNull)": "cpu throttling %"
+              "Value 7 (firstNotNull)": "cpu throttling %",
+              "Value 8 (firstNotNull)": "cpu throttling % (5m)"
             }
           }
         },
@@ -767,6 +796,10 @@
               },
               {
                 "targetField": "cpu throttling %",
+                "destinationType": "number"
+              },
+              {
+                "targetField": "cpu throttling % (5m)",
                 "destinationType": "number"
               }
             ],
@@ -878,6 +911,50 @@
             "matcher": {
               "id": "byName",
               "options": "cpu throttling %"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 10
+                    },
+                    {
+                      "color": "red",
+                      "value": 25
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "cpu throttling % (5m)"
             },
             "properties": [
               {
@@ -2134,7 +2211,149 @@
           }
         ]
       }
+    },
+  {
+    "id": 13,
+    "type": "row",
+    "title": "Upstream Service latency",
+    "collapsed": true,
+    "gridPos": {
+      "h": 1,
+      "w": 24,
+      "x": 0,
+      "y": 113
+    },
+    "panels": []
+  },
+  {
+    "id": 14,
+    "type": "table",
+    "title": "Upstream Service latency",
+    "description": "P99 upstream request latency from kgateway/Envoy over the last 5 minutes. Standard kube_* cluster names are parsed into namespace and service labels. Custom clusters remain identified by envoy_cluster_name. This is Service/cluster-level latency, not Deployment-level latency.",
+    "datasource": {
+      "type": "prometheus",
+      "uid": "$datasource"
+    },
+    "gridPos": {
+      "h": 18,
+      "w": 24,
+      "x": 0,
+      "y": 114
+    },
+    "targets": [
+      {
+        "refId": "A",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "$datasource"
+        },
+        "expr": "histogram_quantile(0.99, sum by (le, envoy_cluster_name, namespace, service) (label_replace(label_replace(rate(envoy_cluster_upstream_rq_time_bucket[5m]), \"namespace\", \"$1\", \"envoy_cluster_name\", \"^kube_([^_]+)_.+_[^_]+$\"), \"service\", \"$1\", \"envoy_cluster_name\", \"^kube_[^_]+_(.+)_[^_]+$\")))",
+        "format": "table",
+        "instant": true
+      }
+    ],
+    "transformations": [
+      {
+        "id": "organize",
+        "options": {
+          "excludeByName": {
+            "Time": true
+          },
+          "indexByName": {
+            "namespace": 0,
+            "service": 1,
+            "envoy_cluster_name": 2,
+            "Value": 3
+          },
+          "renameByName": {
+            "Value": "upstream p99 latency (5m)"
+          }
+        }
+      },
+      {
+        "id": "convertFieldType",
+        "options": {
+          "conversions": [
+            {
+              "targetField": "upstream p99 latency (5m)",
+              "destinationType": "number"
+            }
+          ],
+          "fields": {}
+        }
+      }
+    ],
+    "fieldConfig": {
+      "defaults": {
+        "custom": {
+          "align": "left",
+          "cellOptions": {
+            "type": "auto"
+          },
+          "filterable": true
+        },
+        "mappings": [
+          {
+            "type": "special",
+            "options": {
+              "match": "null",
+              "result": {
+                "text": "N/A",
+                "color": "red"
+              }
+            }
+          },
+          {
+            "type": "special",
+            "options": {
+              "match": "nan",
+              "result": {
+                "text": "N/A",
+                "color": "red"
+              }
+            }
+          }
+        ],
+        "thresholds": {
+          "mode": "absolute",
+          "steps": [
+            {
+              "color": "green",
+              "value": null
+            }
+          ]
+        }
+      },
+      "overrides": [
+        {
+          "matcher": {
+            "id": "byName",
+            "options": "upstream p99 latency (5m)"
+          },
+          "properties": [
+            {
+              "id": "unit",
+              "value": "ms"
+            },
+            {
+              "id": "decimals",
+              "value": 2
+            }
+          ]
+        }
+      ]
+    },
+    "options": {
+      "showHeader": true,
+      "cellHeight": "sm",
+      "sortBy": [
+        {
+          "displayName": "envoy_cluster_name",
+          "desc": false
+        }
+      ]
     }
+  }
   ],
   "links": [
     {
